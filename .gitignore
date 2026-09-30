@@ -27,18 +27,18 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
-/.agents
 /.amp
-/.claude
 /.cursor
 /.factory
 /.grok
 /.junie
 /.kiro
 /.pi
-/.mcp.json
-/AGENTS.md
-/CLAUDE.md
-/boost.json
 /opencode.json
 /opencode.jsonc
+
+# Keep local agent state private; track shared sources and compatibility links.
+/.claude/*
+!/.claude/skills
+/.codex/*
+!/.codex/config.toml
