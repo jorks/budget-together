@@ -24,11 +24,8 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('passkeys');
+        throw new LogicException('Rollback is disabled for greenfield migrations. Use migrate:fresh on a local database.');
     }
 };

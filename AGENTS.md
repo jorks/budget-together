@@ -1,6 +1,8 @@
 # Agent configuration
 
-Use this file and `.agents/` as the canonical sources for project agent instructions, skills, rules, and configuration. Read `.agents/ai/rules/index.md` and its applicable rules before planning or editing. Add future agent assets under `.agents/`; keep tool-specific entry points as relative symlinks and preserve them when running generators.
+Use this file and `.agents/` as the canonical sources for project agent instructions, skills, rules, and configuration. Read `.agents/ai/rules/index.md` and its applicable rules before planning or editing. Project rules override generic guidance below when they differ. Add future agent assets under `.agents/`; keep tool-specific entry points as relative symlinks and preserve them when running generators.
+
+Every behavior change needs meaningful automated tests. Every new feature needs useful factories and realistic development seed data. Follow the path-specific rules for the full project conventions.
 
 <laravel-boost-guidelines>
 === foundation rules ===
