@@ -17,7 +17,7 @@ class BudgetItemFactory extends Factory
 
     public function income(): static
     {
-        return $this->state(fn (): array => ['kind' => 'income', 'name' => 'Salary', 'person' => 'Alex', 'category' => null, 'amount_cents' => 520000, 'cadence' => 'fortnightly', 'gross_annual_cents' => 20000000]);
+        return $this->state(fn (): array => ['kind' => 'income', 'name' => 'Salary', 'person' => 'James', 'category' => null, 'amount_cents' => 520000, 'cadence' => 'fortnightly', 'gross_annual_cents' => 20000000]);
     }
 
     public function variable(): static

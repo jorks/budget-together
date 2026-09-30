@@ -7,9 +7,9 @@ use Database\Seeders\BudgetDemoSeeder;
 test('demo seeding creates a connected household and preserves edits on repeat runs', function () {
     $this->freezeTime();
     $this->seed(BudgetDemoSeeder::class);
-    $alex = User::query()->where('email', 'alex@example.test')->firstOrFail();
-    $household = $alex->households()->firstOrFail();
-    $income = $household->items()->where('name', 'Alex salary')->firstOrFail();
+    $james = User::query()->where('email', 'james@example.test')->firstOrFail();
+    $household = $james->households()->firstOrFail();
+    $income = $household->items()->where('name', 'James salary')->firstOrFail();
     $income->update(['gross_annual_cents' => 16000000]);
 
     $this->seed(BudgetDemoSeeder::class);
@@ -33,17 +33,17 @@ test('demo seeding never creates financial fixtures in production', function () 
     $this->assertDatabaseCount('budget_items', 0);
 });
 
-test('demo seeding uses a fictional household with coherent estimated finances', function () {
+test('demo seeding uses a demo household with fictional estimated finances', function () {
     $this->freezeTime();
 
     $this->seed();
 
-    $this->assertDatabaseHas('users', ['name' => 'Alex (demo)', 'email' => 'alex@example.test']);
-    $this->assertDatabaseHas('users', ['name' => 'Morgan (demo)', 'email' => 'morgan@example.test']);
-    $household = User::query()->where('email', 'alex@example.test')->firstOrFail()->households()->firstOrFail();
-    expect($household->name)->toBe('Alex & Morgan · Demo');
-    $this->assertDatabaseHas('budget_items', ['household_id' => $household->id, 'name' => 'Alex salary', 'gross_annual_cents' => 15500000, 'bonus_annual_cents' => 750000, 'amount_cents' => 436462]);
-    $this->assertDatabaseHas('budget_items', ['household_id' => $household->id, 'name' => 'Morgan salary', 'gross_annual_cents' => 11000000, 'amount_cents' => 324154]);
+    $this->assertDatabaseHas('users', ['name' => 'James (demo)', 'email' => 'james@example.test']);
+    $this->assertDatabaseHas('users', ['name' => 'Sasha (demo)', 'email' => 'sasha@example.test']);
+    $household = User::query()->where('email', 'james@example.test')->firstOrFail()->households()->firstOrFail();
+    expect($household->name)->toBe('James & Sasha · Demo');
+    $this->assertDatabaseHas('budget_items', ['household_id' => $household->id, 'name' => 'James salary', 'gross_annual_cents' => 15500000, 'bonus_annual_cents' => 750000, 'amount_cents' => 436462]);
+    $this->assertDatabaseHas('budget_items', ['household_id' => $household->id, 'name' => 'Sasha salary', 'gross_annual_cents' => 11000000, 'amount_cents' => 324154]);
     $this->assertDatabaseHas('accounts', ['household_id' => $household->id, 'type' => 'mortgage', 'balance_cents' => -85000000]);
     $this->assertDatabaseHas('budget_items', ['household_id' => $household->id, 'name' => 'Mortgage repayment', 'amount_cents' => 520000]);
     $this->assertDatabaseHas('budget_items', ['household_id' => $household->id, 'name' => 'Childcare', 'amount_cents' => 120000]);
