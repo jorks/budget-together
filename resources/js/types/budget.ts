@@ -81,6 +81,11 @@ export type BillEvent = {
     account: string | null;
 };
 export type BudgetProps = {
+    categoryTotals: {
+        category: string;
+        count: number;
+        equivalents: Equivalents;
+    }[];
     view: string;
     household: { id: number; name: string };
     members: { id: number; name: string; email: string }[];

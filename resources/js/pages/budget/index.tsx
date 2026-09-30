@@ -362,6 +362,7 @@ export default function Budget(props: BudgetProps) {
             'Personal',
             'Everyday',
             'Savings',
+            'Uncategorised',
         ]),
     ].sort();
     const fundsList = items.filter(
@@ -375,7 +376,8 @@ export default function Budget(props: BudgetProps) {
                 ? ['spending', 'saving'].includes(item.kind)
                 : item.kind === kind) &&
             (showPaused || item.is_active) &&
-            (category === 'all' || item.category === category) &&
+            (category === 'all' ||
+                (item.category || 'Uncategorised') === category) &&
             `${item.name} ${item.category ?? ''} ${item.person ?? ''}`
                 .toLowerCase()
                 .includes(query.toLowerCase()),
@@ -663,6 +665,58 @@ export default function Budget(props: BudgetProps) {
                             </Panel>
                         )}
                     </>
+                )}
+                {view === 'bills' && props.categoryTotals.length > 0 && (
+                    <Panel>
+                        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 className="font-semibold">
+                                    The yearly view
+                                </h2>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    {money(totals.bill.annually)} across all
+                                    active bills
+                                </p>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Select a category to filter the list
+                            </p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            {props.categoryTotals.map((group) => (
+                                <button
+                                    key={group.category}
+                                    onClick={() => {
+                                        setCategory(
+                                            category === group.category
+                                                ? 'all'
+                                                : group.category,
+                                        );
+                                        setQuery('');
+                                    }}
+                                    aria-pressed={category === group.category}
+                                    className={cn(
+                                        'rounded-lg border p-4 text-left transition hover:bg-muted/50',
+                                        category === group.category &&
+                                            'border-primary bg-primary/5',
+                                    )}
+                                >
+                                    <p className="text-sm font-medium">
+                                        {group.category}
+                                    </p>
+                                    <p className="mt-2 text-xl font-semibold tabular-nums">
+                                        {money(group.equivalents.annually)}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        {group.count}{' '}
+                                        {group.count === 1 ? 'bill' : 'bills'} ·{' '}
+                                        {money(group.equivalents.fortnightly)} /
+                                        fortnight
+                                    </p>
+                                </button>
+                            ))}
+                        </div>
+                    </Panel>
                 )}
                 {['income', 'bills', 'plan'].includes(view) && (
                     <>

@@ -96,6 +96,31 @@ class BudgetCalculator
 
     /**
      * @param  Collection<int, BudgetItem>  $items
+     * @return list<array{category: string, count: int, equivalents: array{annually: int, monthly: int, fortnightly: int, weekly: int}}>
+     */
+    public function categories(Collection $items): array
+    {
+        $groups = [];
+        foreach ($items as $item) {
+            if ($item->kind !== 'bill' || ! $item->is_active) {
+                continue;
+            }
+            $category = $item->category ?: 'Uncategorised';
+            $groups[$category] ??= ['annual' => 0, 'count' => 0];
+            $groups[$category]['annual'] += $this->annual($item);
+            $groups[$category]['count']++;
+        }
+        $result = [];
+        foreach ($groups as $category => $group) {
+            $result[] = ['category' => $category, 'count' => $group['count'], 'equivalents' => $this->equivalents($group['annual'])];
+        }
+        usort($result, fn (array $a, array $b): int => $b['equivalents']['annually'] <=> $a['equivalents']['annually']);
+
+        return $result;
+    }
+
+    /**
+     * @param  Collection<int, BudgetItem>  $items
      * @return array<string, array{annually: int, monthly: int, fortnightly: int, weekly: int}>
      */
     public function totals(Collection $items): array

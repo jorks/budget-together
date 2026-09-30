@@ -75,3 +75,18 @@ test('funding uses Melbourne calendar dates and excludes a deposit on the due da
     expect(app(BudgetCalculator::class)->sinkingFund($item, CarbonImmutable::parse('2026-10-22', 'Australia/Melbourne')))
         ->toMatchArray(['contributions_left' => 0, 'required_cents' => 10000, 'overdue' => false]);
 });
+
+test('category totals combine bill cadences without including paused items or allowances', function () {
+    $items = collect([
+        BudgetItem::factory()->make(['category' => 'Utilities', 'amount_cents' => 10000, 'cadence' => 'monthly']),
+        BudgetItem::factory()->make(['category' => 'Utilities', 'amount_cents' => 20000, 'cadence' => 'quarterly']),
+        BudgetItem::factory()->make(['category' => null, 'amount_cents' => 5200, 'cadence' => 'annually']),
+        BudgetItem::factory()->make(['category' => 'Utilities', 'is_active' => false]),
+        BudgetItem::factory()->allowance()->make(['category' => 'Utilities']),
+    ]);
+
+    expect(app(BudgetCalculator::class)->categories($items))->toBe([
+        ['category' => 'Utilities', 'count' => 2, 'equivalents' => ['annually' => 200000, 'monthly' => 16667, 'fortnightly' => 7692, 'weekly' => 3846]],
+        ['category' => 'Uncategorised', 'count' => 1, 'equivalents' => ['annually' => 5200, 'monthly' => 433, 'fortnightly' => 200, 'weekly' => 100]],
+    ]);
+});

@@ -35,6 +35,7 @@ class BudgetController extends Controller
             'members' => $household->users()->orderBy('name')->get(['users.id', 'name', 'email']),
             'items' => $items->map(fn (BudgetItem $item): array => $calculator->present($item, $today)),
             'totals' => $calculator->totals($items),
+            'categoryTotals' => $calculator->categories($items),
             'accounts' => $household->accounts()->with('bank')->orderBy('name')->get(),
             'banks' => $household->banks()->withCount('accounts')->orderBy('name')->get(),
             'invitations' => $household->invitations()->whereNull('accepted_at')->where('expires_at', '>', now())->orderByDesc('id')->get(['id', 'email', 'expires_at']),
