@@ -67,3 +67,11 @@ test('income can use the tax estimate while excluding an uncertain bonus', funct
     $item->include_bonus = true;
     expect(app(BudgetCalculator::class)->annual($item))->toBe(14543000);
 });
+
+test('funding uses Melbourne calendar dates and excludes a deposit on the due date', function () {
+    $item = BudgetItem::factory()->sinkingFund()->make(['amount_cents' => 10000, 'saved_cents' => 0, 'saving_start_date' => '2026-10-01', 'due_date' => '2026-10-22']);
+    expect(app(BudgetCalculator::class)->sinkingFund($item, CarbonImmutable::parse('2026-10-01', 'Australia/Melbourne')))
+        ->toMatchArray(['contributions_left' => 3, 'required_cents' => 3334]);
+    expect(app(BudgetCalculator::class)->sinkingFund($item, CarbonImmutable::parse('2026-10-22', 'Australia/Melbourne')))
+        ->toMatchArray(['contributions_left' => 0, 'required_cents' => 10000, 'overdue' => false]);
+});

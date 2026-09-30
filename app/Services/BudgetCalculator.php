@@ -32,7 +32,7 @@ class BudgetCalculator
         if (! $item->is_active || $item->due_date === null) {
             return [];
         }
-        $anchor = $item->due_date;
+        $anchor = CarbonImmutable::parse($item->due_date->toDateString(), $from->timezone);
         $cadence = Cadence::from($item->cadence);
         $dates = [];
         for ($index = 0; ; $index++) {
@@ -58,10 +58,12 @@ class BudgetCalculator
             return null;
         }
         $remaining = max(0, $item->amount_cents - $item->saved_cents);
-        $start = max($today->startOfDay(), $item->saving_start_date ?? $today->startOfDay());
+        $due = CarbonImmutable::parse($item->due_date->toDateString(), $today->timezone);
+        $savingStart = $item->saving_start_date === null ? $today->startOfDay() : CarbonImmutable::parse($item->saving_start_date->toDateString(), $today->timezone);
+        $start = max($today->startOfDay(), $savingStart);
         $cadence = Cadence::from($item->contribution_cadence);
         $count = 0;
-        while ($cadence->occurrence($start, $count)->lessThan($item->due_date)) {
+        while ($cadence->occurrence($start, $count)->lessThan($due)) {
             $count++;
         }
         $required = $count > 0 ? (int) ceil($remaining / $count) : $remaining;
@@ -76,7 +78,7 @@ class BudgetCalculator
             'projected_cents' => $projected,
             'shortfall_cents' => max(0, $item->amount_cents - $projected),
             'on_track' => $projected >= $item->amount_cents,
-            'overdue' => $item->due_date->lessThan($today->startOfDay()),
+            'overdue' => $due->lessThan($today->startOfDay()),
             'cadence' => $item->contribution_cadence,
         ];
     }

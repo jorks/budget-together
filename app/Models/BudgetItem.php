@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Database\Factories\BudgetItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,6 +10,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property CarbonImmutable|null $due_date
+ * @property CarbonImmutable|null $saving_start_date
+ */
 #[Fillable(['account_id', 'kind', 'name', 'category', 'person', 'amount_cents', 'cadence', 'payments_per_year', 'is_variable', 'is_active', 'due_date', 'gross_annual_cents', 'bonus_annual_cents', 'notes', 'has_sinking_fund', 'saved_cents', 'saving_start_date', 'contribution_cents', 'contribution_cadence', 'saving_account_id', 'use_tax_estimate', 'include_bonus', 'include_medicare', 'tax_year'])]
 class BudgetItem extends Model
 {
