@@ -143,3 +143,69 @@ test('guests and unverified users cannot change household budgets', function () 
     $this->actingAs(User::factory()->unverified()->create())->post(route('budget-items.store'), budgetPayload())->assertRedirect(route('verification.notice'));
     $this->assertDatabaseCount('budget_items', 0);
 });
+
+test('bill pages expose category totals and month-end calendar occurrences', function () {
+    $household = Household::factory()->hasAttached(User::factory())->create();
+    BudgetItem::factory()->for($household)->create(['name' => 'Internet', 'category' => 'Utilities', 'amount_cents' => 10000, 'due_date' => '2028-01-31']);
+
+    $this->actingAs($household->users->first())->get(route('calendar', ['month' => '2028-02']))
+        ->assertInertia(fn (Assert $page) => $page->where('categoryTotals.0.category', 'Utilities')
+            ->where('categoryTotals.0.equivalents.annually', 120000)
+            ->has('events', 1)->where('events.0.date', '2028-02-29'));
+});
+
+test('deleting an account keeps its bills and clears both account links', function () {
+    $household = Household::factory()->hasAttached(User::factory())->create();
+    $account = Account::factory()->for($household)->create();
+    $bill = BudgetItem::factory()->for($household)->sinkingFund()->create(['account_id' => $account->id, 'saving_account_id' => $account->id]);
+    $this->actingAs($household->users->first())->put(route('accounts.update', $account), ['name' => 'Annual bills pot', 'type' => 'savings', 'balance_cents' => 10000])->assertRedirect();
+    expect($account->fresh()->name)->toBe('Annual bills pot');
+
+    $this->delete(route('accounts.destroy', $account))->assertRedirect();
+
+    $this->assertModelMissing($account);
+    expect($bill->fresh())->account_id->toBeNull()->saving_account_id->toBeNull();
+    $this->assertModelExists($bill);
+});
+
+test('banks can be renamed and removed once they have no accounts', function () {
+    $household = Household::factory()->hasAttached(User::factory())->create();
+    $bank = Bank::factory()->for($household)->create();
+    $this->actingAs($household->users->first())->put(route('banks.update', $bank), ['name' => 'Renamed institution'])->assertRedirect();
+    expect($bank->fresh()->name)->toBe('Renamed institution');
+
+    $this->delete(route('banks.destroy', $bank))->assertRedirect();
+
+    $this->assertModelMissing($bank);
+});
+
+test('household members can revoke invitations but other households cannot', function () {
+    $household = Household::factory()->hasAttached(User::factory())->create();
+    $invitation = HouseholdInvitation::factory()->for($household)->create();
+    $this->actingAs(User::factory()->create())->delete(route('invitations.destroy', $invitation))->assertNotFound();
+    $this->assertModelExists($invitation);
+
+    $this->actingAs($household->users->first())->delete(route('invitations.destroy', $invitation))->assertRedirect();
+
+    $this->assertModelMissing($invitation);
+});
+
+test('accepting an invitation can replace an automatically created empty household', function () {
+    $invitee = User::factory()->create();
+    Household::factory()->hasAttached($invitee)->create();
+    $invitation = HouseholdInvitation::factory()->create(['email' => $invitee->email, 'token' => hash('sha256', 'join-empty-household')]);
+
+    $this->actingAs($invitee)->put(route('invitations.update', 'join-empty-household'))->assertRedirect(route('dashboard'));
+
+    expect($invitee->households()->count())->toBe(1);
+    expect($invitee->households()->first()->id)->toBe($invitation->household_id);
+});
+
+test('income cannot receive actual bill payments', function () {
+    $household = Household::factory()->hasAttached(User::factory())->create();
+    $income = BudgetItem::factory()->for($household)->income()->create();
+
+    $this->actingAs($household->users->first())->post(route('payments.store', $income), ['amount_cents' => 100, 'paid_on' => now()->toDateString()])->assertNotFound();
+
+    $this->assertDatabaseCount('bill_payments', 0);
+});
