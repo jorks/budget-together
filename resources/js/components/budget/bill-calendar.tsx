@@ -92,7 +92,7 @@ export function BillCalendar({
                                 <div
                                     key={index}
                                     className={cn(
-                                        'min-h-32 border-r border-b p-2 last:border-r-0',
+                                        'min-h-32 min-w-0 border-r border-b p-2 last:border-r-0',
                                         !valid && 'bg-muted/30',
                                     )}
                                 >
@@ -119,7 +119,7 @@ export function BillCalendar({
                                                             onClick={() =>
                                                                 onEdit(event.id)
                                                             }
-                                                            className="rounded-md bg-primary/8 p-2 text-left text-xs transition hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-ring"
+                                                            className="min-w-0 rounded-md bg-primary/8 p-2 text-left text-xs transition hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-ring"
                                                         >
                                                             <span className="block truncate font-medium">
                                                                 {event.name}
