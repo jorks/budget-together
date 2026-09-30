@@ -1,0 +1,96 @@
+export type Period = 'weekly' | 'fortnightly' | 'monthly' | 'annually';
+export type Kind = 'income' | 'bill' | 'spending' | 'saving';
+export type Equivalents = Record<Period, number>;
+export type Bank = {
+    id: number;
+    name: string;
+    notes: string | null;
+    accounts_count: number;
+};
+export type Account = {
+    id: number;
+    name: string;
+    bank_id: number | null;
+    bank: Bank | null;
+    type: string;
+    owner: string | null;
+    last_four: string | null;
+    purpose: string | null;
+    balance_cents: number;
+    credit_limit_cents: number | null;
+};
+export type Payment = {
+    id: number;
+    amount_cents: number;
+    paid_on: string;
+    notes: string | null;
+};
+export type BudgetItem = {
+    id: number;
+    name: string;
+    kind: Kind;
+    category: string | null;
+    person: string | null;
+    amount_cents: number;
+    cadence: string;
+    payments_per_year: number | null;
+    is_active: boolean;
+    is_variable: boolean;
+    due_date: string | null;
+    account_id: number | null;
+    account: Account | null;
+    gross_annual_cents: number | null;
+    bonus_annual_cents: number | null;
+    use_tax_estimate: boolean;
+    tax_year: number;
+    include_bonus: boolean;
+    include_medicare: boolean;
+    notes: string | null;
+    has_sinking_fund: boolean;
+    saved_cents: number;
+    saving_start_date: string | null;
+    contribution_cents: number | null;
+    contribution_cadence: string;
+    saving_account_id: number | null;
+    equivalents: Equivalents;
+    payments: Payment[];
+    tax_estimate: {
+        gross_cents: number;
+        tax_cents: number;
+        medicare_cents: number;
+        net_cents: number;
+    } | null;
+    sinking_fund: {
+        remaining_cents: number;
+        contributions_left: number;
+        required_cents: number;
+        contribution_cents: number;
+        projected_cents: number;
+        shortfall_cents: number;
+        on_track: boolean;
+        overdue: boolean;
+        cadence: string;
+    } | null;
+};
+export type BillEvent = {
+    id: number;
+    name: string;
+    date: string;
+    amount_cents: number;
+    is_variable: boolean;
+    account: string | null;
+};
+export type BudgetProps = {
+    view: string;
+    household: { id: number; name: string };
+    members: { id: number; name: string; email: string }[];
+    items: BudgetItem[];
+    accounts: Account[];
+    banks: Bank[];
+    totals: Record<Kind | 'outgoings' | 'remaining', Equivalents>;
+    today: string;
+    month: string;
+    events: BillEvent[];
+    invitations: { id: number; email: string; expires_at: string }[];
+    invitation_url: string | null;
+};

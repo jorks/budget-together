@@ -1,7 +1,15 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import {
+    Banknote,
+    CalendarDays,
+    House,
+    Landmark,
+    ListChecks,
+    Receipt,
+    Sprout,
+    Users,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -13,28 +21,27 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
+import {
+    dashboard,
+    income,
+    bills,
+    plan,
+    calendar,
+    funds,
+    accounts,
+    household,
+} from '@/routes';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-];
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: FolderGit2,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
-    },
+    { title: 'Overview', href: dashboard(), icon: House },
+    { title: 'Income', href: income(), icon: Banknote },
+    { title: 'Bills & expenses', href: bills(), icon: Receipt },
+    { title: 'Spending plan', href: plan(), icon: ListChecks },
+    { title: 'Bill calendar', href: calendar(), icon: CalendarDays },
+    { title: 'Save ahead', href: funds(), icon: Sprout },
+    { title: 'Accounts & banks', href: accounts(), icon: Landmark },
+    { title: 'Household', href: household(), icon: Users },
 ];
 
 export function AppSidebar() {
@@ -57,7 +64,6 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
