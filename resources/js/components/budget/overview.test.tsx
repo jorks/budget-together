@@ -43,6 +43,30 @@ function budgetProps(view: string): BudgetProps {
 }
 
 it.each([
+    ['plan', ['none', 'category']],
+    ['bills', ['none', 'category', 'frequency']],
+] as const)(
+    'offers the appropriate grouping choices on %s',
+    (view, choices) => {
+        vi.mocked(useBudgetPeriod).mockReturnValue({
+            preferredPeriod: 'fortnightly',
+            period: 'fortnightly',
+        });
+
+        const html = renderToStaticMarkup(<Budget {...budgetProps(view)} />);
+        const select =
+            html.match(
+                /<select[^>]*aria-label="Group budget items"[^>]*>[\s\S]*?<\/select>/,
+            )?.[0] ?? '';
+        const values = [...select.matchAll(/<option value="([^"]+)"/g)].map(
+            (match) => match[1],
+        );
+
+        expect(values).toEqual(choices);
+    },
+);
+
+it.each([
     ['overview', null],
     ['bills', 'Add bill'],
     ['income', 'Add income'],

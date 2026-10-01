@@ -6,6 +6,7 @@ import {
     Check,
     CircleDollarSign,
     History,
+    LockKeyhole,
     Pencil,
     PiggyBank,
     Plus,
@@ -16,6 +17,8 @@ import {
 import { useState } from 'react';
 import { useBudgetPeriod } from '@/hooks/use-budget-period';
 import { groupBudgetItems } from '@/lib/budget-groups';
+import { planBalance } from '@/lib/plan-balance';
+import type { CalculatedRow, PlanBalance } from '@/lib/plan-balance';
 import { Metric, periodLabels } from '@/components/budget/metric';
 import { TaxEstimateCard } from '@/components/budget/tax-estimate-card';
 import { TaxInfo } from '@/components/budget/tax-info';
@@ -39,7 +42,13 @@ import { cn } from '@/lib/utils';
 import { bills, calendar, funds, plan } from '@/routes';
 import { destroy } from '@/routes/budget-items';
 import { edit as editProfile } from '@/routes/profile';
-import type { BudgetItem, BudgetProps, Kind, Period } from '@/types/budget';
+import type {
+    BudgetItem,
+    BudgetProps,
+    Equivalents,
+    Kind,
+    Period,
+} from '@/types/budget';
 
 const titles: Record<string, [string, string]> = {
     overview: [
@@ -93,6 +102,23 @@ function includedInTotal(item: BudgetItem): boolean {
     );
 }
 
+function balanceMoney(amount: number, direction: 'income' | 'expense'): string {
+    if (amount === 0) {
+        return money(0);
+    }
+    const signed = direction === 'expense' ? -amount : amount;
+    return `${signed > 0 ? '+' : ''}${money(signed)}`;
+}
+
+function CalculatedIndicator() {
+    return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+            <LockKeyhole aria-hidden="true" className="size-3" />
+            Calculated
+        </span>
+    );
+}
+
 export function ItemTable({
     items,
     onEdit,
@@ -100,7 +126,13 @@ export function ItemTable({
     period,
     summaryOnly = false,
     totalLabel = 'Total',
+    calculatedRows = [],
+    remaining,
+    showCashFlow = false,
 }: {
+    showCashFlow?: boolean;
+    calculatedRows?: CalculatedRow[];
+    remaining?: Equivalents;
     summaryOnly?: boolean;
     totalLabel?: string;
     items: BudgetItem[];
@@ -164,11 +196,62 @@ export function ItemTable({
                     </tr>
                 </thead>
                 <tbody>
-                    {(summaryOnly ? [] : items).map((item) => (
+                    {calculatedRows.map((row) => (
+                        <tr
+                            key={row.label}
+                            className={cn(
+                                row.direction === 'income'
+                                    ? 'bg-primary/5'
+                                    : 'bg-muted/30',
+                            )}
+                        >
+                            <th
+                                scope="row"
+                                className="px-4 py-4 font-semibold"
+                                title={row.description}
+                            >
+                                {row.label}
+                                <span className="sr-only">
+                                    {row.direction === 'income'
+                                        ? ' Money in'
+                                        : ' Money out'}
+                                </span>
+                                <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                                    {row.description}
+                                </span>
+                            </th>
+                            {columns.map((column) => (
+                                <td
+                                    key={column}
+                                    className={cn(
+                                        'px-4 py-4 text-right whitespace-nowrap tabular-nums',
+                                        row.direction === 'income'
+                                            ? 'text-primary'
+                                            : 'text-foreground',
+                                        period === column &&
+                                            'bg-primary/5 font-semibold',
+                                    )}
+                                >
+                                    {balanceMoney(
+                                        row.equivalents[column],
+                                        row.direction,
+                                    )}
+                                </td>
+                            ))}
+                            <td className="px-3 py-4 text-right">
+                                <CalculatedIndicator />
+                            </td>
+                        </tr>
+                    ))}
+                    {(summaryOnly ? [] : items).map((item, index) => (
                         <tr
                             key={item.id}
                             className={cn(
-                                'border-b last:border-0 hover:bg-muted/20',
+                                'last:border-0 hover:bg-muted/20',
+                                !showCashFlow && 'border-b',
+                                index === 0 &&
+                                    calculatedRows.length > 0 &&
+                                    'border-t border-border/60',
                                 !item.is_active && 'opacity-60',
                             )}
                         >
@@ -240,7 +323,12 @@ export function ItemTable({
                                             'bg-primary/5 font-semibold',
                                     )}
                                 >
-                                    {money(item.equivalents[column])}
+                                    {showCashFlow
+                                        ? balanceMoney(
+                                              item.equivalents[column],
+                                              'expense',
+                                          )
+                                        : money(item.equivalents[column])}
                                 </td>
                             ))}
                             <td className="px-2 py-4">
@@ -286,7 +374,7 @@ export function ItemTable({
                         </tr>
                     ))}
                 </tbody>
-                <tfoot className="border-t-2 bg-primary/5 font-semibold">
+                <tfoot className="border-t bg-muted/30 font-semibold">
                     <tr>
                         <th scope="row" className="px-4 py-4">
                             {totalLabel}
@@ -311,20 +399,57 @@ export function ItemTable({
                                 className={cn(
                                     'w-36 px-4 py-4 text-right whitespace-nowrap tabular-nums',
                                     period === column &&
-                                        'bg-primary/8 text-primary',
+                                        (showCashFlow
+                                            ? 'bg-primary/8'
+                                            : 'bg-primary/8 text-primary'),
                                 )}
                             >
-                                {money(
-                                    included.reduce(
-                                        (sum, item) =>
-                                            sum + item.equivalents[column],
-                                        0,
-                                    ),
-                                )}
+                                {showCashFlow
+                                    ? balanceMoney(
+                                          included.reduce(
+                                              (sum, item) =>
+                                                  sum +
+                                                  item.equivalents[column],
+                                              0,
+                                          ),
+                                          'expense',
+                                      )
+                                    : money(
+                                          included.reduce(
+                                              (sum, item) =>
+                                                  sum +
+                                                  item.equivalents[column],
+                                              0,
+                                          ),
+                                      )}
                             </td>
                         ))}
                         <td />
                     </tr>
+                    {remaining && (
+                        <tr className="border-t bg-primary/5">
+                            <th scope="row" className="px-4 py-4">
+                                Remaining
+                            </th>
+                            {columns.map((column) => (
+                                <td
+                                    key={column}
+                                    className={cn(
+                                        'px-4 py-4 text-right whitespace-nowrap tabular-nums',
+                                        period === column && 'bg-primary/8',
+                                        remaining[column] < 0
+                                            ? 'text-destructive'
+                                            : 'text-primary',
+                                    )}
+                                >
+                                    {balanceMoney(remaining[column], 'income')}
+                                </td>
+                            ))}
+                            <td className="px-3 py-4 text-right">
+                                <CalculatedIndicator />
+                            </td>
+                        </tr>
+                    )}
                 </tfoot>
             </table>
         </div>
@@ -336,18 +461,24 @@ export function ItemTables({
     onEdit,
     onHistory,
     period,
+    balance,
 }: {
+    balance?: PlanBalance;
     items: BudgetItem[];
     groupBy: string;
     onEdit: (item: BudgetItem) => void;
     onHistory: (item: BudgetItem) => void;
     period: Period | null;
 }) {
+    const groups = groupBudgetItems(items, groupBy);
+    if (balance && groups.length === 0) {
+        groups.push(['', []]);
+    }
     return (
         <div className="grid gap-5">
-            {groupBudgetItems(items, groupBy).map(([name, grouped]) => (
+            {groups.map(([name, grouped], index) => (
                 <section key={name}>
-                    {groupBy !== 'none' && (
+                    {groupBy !== 'none' && grouped.length > 0 && (
                         <h2 className="mb-3 flex items-center gap-2 font-semibold">
                             {groupBy === 'frequency' ? (
                                 <Repeat className="size-4" />
@@ -366,21 +497,36 @@ export function ItemTables({
                     )}
                     <ItemTable
                         items={grouped}
+                        showCashFlow={!!balance}
                         onEdit={onEdit}
                         onHistory={onHistory}
                         period={period}
-                        totalLabel={groupBy === 'none' ? 'Total' : 'Subtotal'}
+                        totalLabel={
+                            groupBy !== 'none'
+                                ? 'Subtotal'
+                                : balance
+                                  ? 'Spending & savings total'
+                                  : 'Total'
+                        }
+                        calculatedRows={index === 0 ? balance?.rows : undefined}
+                        remaining={
+                            groupBy === 'none' ? balance?.remaining : undefined
+                        }
                     />
                 </section>
             ))}
             {groupBy !== 'none' && (
                 <ItemTable
                     items={items}
+                    showCashFlow={!!balance}
                     onEdit={onEdit}
                     onHistory={onHistory}
                     period={period}
                     summaryOnly
-                    totalLabel="Grand total"
+                    totalLabel={
+                        balance ? 'Spending & savings total' : 'Grand total'
+                    }
+                    remaining={balance?.remaining}
                 />
             )}
         </div>
@@ -899,9 +1045,11 @@ export default function Budget(props: BudgetProps) {
                                     <option value="category">
                                         Group by category
                                     </option>
-                                    <option value="frequency">
-                                        Group by frequency
-                                    </option>
+                                    {view !== 'plan' && (
+                                        <option value="frequency">
+                                            Group by frequency
+                                        </option>
+                                    )}
                                 </select>
                                 <label className="flex items-center gap-2 text-sm">
                                     <input
@@ -915,13 +1063,18 @@ export default function Budget(props: BudgetProps) {
                                 </label>
                             </div>
                         )}
-                        {visible.length ? (
+                        {visible.length || view === 'plan' ? (
                             <ItemTables
                                 items={visible}
                                 groupBy={view === 'income' ? 'none' : groupBy}
                                 onEdit={edit}
                                 onHistory={(item) => setHistoryId(item.id)}
                                 period={preferredPeriod}
+                                balance={
+                                    view === 'plan'
+                                        ? planBalance(items, totals)
+                                        : undefined
+                                }
                             />
                         ) : (
                             <Empty
@@ -943,6 +1096,8 @@ export default function Budget(props: BudgetProps) {
                                 ? 'Annual pre-tax income is shown first; all other income figures are after tax. '
                                 : ''}
                             Paused items are excluded from totals.
+                            {view === 'plan' &&
+                                ' Calculated rows and remaining use the whole household budget, regardless of filters.'}
                         </p>
                         {view === 'income' && (
                             <TaxInfo
