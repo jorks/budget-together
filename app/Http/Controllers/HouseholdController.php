@@ -18,6 +18,8 @@ class HouseholdController extends Controller
         $household = $households->forUser($request->user());
         Gate::authorize('manage', $household);
         $household->update($request->validate([
+            'mortgage_enabled' => ['sometimes', 'required', 'boolean'],
+            'debts_enabled' => ['sometimes', 'required', 'boolean'],
             'name' => ['sometimes', 'required', 'string', 'max:120'],
             'preferred_frequency' => ['sometimes', 'nullable', Rule::in(['weekly', 'fortnightly', 'monthly', 'annually'])],
         ]));

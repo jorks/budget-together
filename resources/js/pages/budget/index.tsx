@@ -41,6 +41,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { bills, calendar, funds, plan } from '@/routes';
 import { destroy } from '@/routes/budget-items';
+import { index as debts } from '@/routes/debts';
 import { index as mortgage } from '@/routes/mortgage';
 import { household } from '@/routes';
 import type {
@@ -211,9 +212,13 @@ export function ItemTable({
                                 className="px-4 py-4 font-semibold"
                                 title={row.description}
                             >
-                                {row.source === 'mortgage' ? (
+                                {row.source ? (
                                     <Link
-                                        href={mortgage()}
+                                        href={
+                                            row.source === 'debt'
+                                                ? debts()
+                                                : mortgage()
+                                        }
                                         className="hover:underline"
                                     >
                                         {row.label}
@@ -263,13 +268,20 @@ export function ItemTable({
                                     calculatedRows.length > 0 &&
                                     'border-t border-border/60',
                                 !item.is_active && 'opacity-60',
-                                item.source === 'mortgage' && 'bg-muted/30',
+                                (item.source === 'mortgage' ||
+                                    item.source === 'debt') &&
+                                    'bg-muted/30',
                             )}
                         >
                             <td className="px-4 py-4">
-                                {item.source === 'mortgage' ? (
+                                {item.source === 'mortgage' ||
+                                item.source === 'debt' ? (
                                     <Link
-                                        href={mortgage()}
+                                        href={
+                                            item.source === 'debt'
+                                                ? debts()
+                                                : mortgage()
+                                        }
                                         className="flex items-center gap-2 text-left font-semibold hover:underline"
                                     >
                                         {item.name}
@@ -282,10 +294,14 @@ export function ItemTable({
                                         {item.name}
                                     </button>
                                 )}
-                                {item.source === 'mortgage' && (
+                                {(item.source === 'mortgage' ||
+                                    item.source === 'debt') && (
                                     <p className="mt-1 text-xs text-muted-foreground">
-                                        From Mortgage · includes extra
-                                        repayments
+                                        From{' '}
+                                        {item.source === 'debt'
+                                            ? 'Debts & financing'
+                                            : 'Mortgage'}{' '}
+                                        · includes extra repayments
                                     </p>
                                 )}
                                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
@@ -358,14 +374,22 @@ export function ItemTable({
                                 </td>
                             ))}
                             <td className="px-2 py-4">
-                                {item.source === 'mortgage' ? (
+                                {item.source === 'mortgage' ||
+                                item.source === 'debt' ? (
                                     <div className="flex flex-col items-end gap-2">
                                         <CalculatedIndicator />
                                         <Link
-                                            href={mortgage()}
+                                            href={
+                                                item.source === 'debt'
+                                                    ? debts()
+                                                    : mortgage()
+                                            }
                                             className="text-xs text-primary hover:underline"
                                         >
-                                            Manage mortgage
+                                            Manage{' '}
+                                            {item.source === 'debt'
+                                                ? 'debt'
+                                                : 'mortgage'}
                                         </Link>
                                     </div>
                                 ) : (
@@ -697,8 +721,8 @@ export default function Budget(props: BudgetProps) {
     const [historyId, setHistoryId] = useState<number | null>(null);
     const history = items.find((item) => item.id === historyId);
     const edit = (item: BudgetItem) => {
-        if (item.source === 'mortgage') {
-            router.visit(mortgage());
+        if (item.source === 'mortgage' || item.source === 'debt') {
+            router.visit(item.source === 'debt' ? debts() : mortgage());
             return;
         }
         setEditing({ item, kind: item.kind });
@@ -706,6 +730,7 @@ export default function Budget(props: BudgetProps) {
     const add = (kind: Kind) => setEditing({ kind });
     const categories = props.categories;
     const balance = planBalance(items, totals);
+    const debtRow = balance.rows.find((row) => row.source === 'debt');
     const fundsList = items.filter(
         (item) => item.is_active && item.has_sinking_fund,
     );
@@ -880,7 +905,9 @@ export default function Budget(props: BudgetProps) {
                                         value: balance.rows[1].equivalents[
                                             period
                                         ],
-                                        route: mortgage(),
+                                        route: props.household.mortgage_enabled
+                                            ? mortgage()
+                                            : bills(),
                                     },
                                     {
                                         name: 'Known bills',
@@ -899,56 +926,77 @@ export default function Budget(props: BudgetProps) {
                                         value: totals.saving[period],
                                         route: plan(),
                                     },
-                                ].map(({ name, value, route }) => {
-                                    const share =
-                                        totals.income[period] > 0
-                                            ? (value / totals.income[period]) *
-                                              100
-                                            : null;
-                                    return (
-                                        <div className="mb-5" key={name}>
-                                            <div className="mb-2 flex justify-between gap-3 text-sm">
-                                                <Link
-                                                    className="hover:underline"
-                                                    href={route}
-                                                >
-                                                    {name}
-                                                </Link>
-                                                <span className="font-medium tabular-nums">
-                                                    {money(value)}
-                                                    {share !== null && (
-                                                        <span className="ml-2 text-xs font-normal text-muted-foreground">
-                                                            {share.toFixed(1)}%
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            </div>
-                                            <div
-                                                className="h-2 rounded-full bg-muted"
-                                                role="meter"
-                                                aria-label={`${name} share of take-home income`}
-                                                aria-valuemin={0}
-                                                aria-valuemax={100}
-                                                aria-valuenow={Math.min(
-                                                    100,
-                                                    share ?? 0,
-                                                )}
-                                                aria-valuetext={
-                                                    share === null
-                                                        ? 'No take-home income set'
-                                                        : `${share.toFixed(1)}% of take-home income`
-                                                }
-                                            >
+                                    ...(debtRow
+                                        ? [
+                                              {
+                                                  name: 'Debts & financing',
+                                                  value: debtRow.equivalents[
+                                                      period
+                                                  ],
+                                                  route: debts(),
+                                              },
+                                          ]
+                                        : []),
+                                ]
+                                    .filter(
+                                        (row) =>
+                                            row.name !== 'Mortgage' ||
+                                            props.household.mortgage_enabled,
+                                    )
+                                    .map(({ name, value, route }) => {
+                                        const share =
+                                            totals.income[period] > 0
+                                                ? (value /
+                                                      totals.income[period]) *
+                                                  100
+                                                : null;
+                                        return (
+                                            <div className="mb-5" key={name}>
+                                                <div className="mb-2 flex justify-between gap-3 text-sm">
+                                                    <Link
+                                                        className="hover:underline"
+                                                        href={route}
+                                                    >
+                                                        {name}
+                                                    </Link>
+                                                    <span className="font-medium tabular-nums">
+                                                        {money(value)}
+                                                        {share !== null && (
+                                                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                                                {share.toFixed(
+                                                                    1,
+                                                                )}
+                                                                %
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </div>
                                                 <div
-                                                    className="h-2 rounded-full bg-primary"
-                                                    style={{
-                                                        width: `${Math.min(100, share ?? 0)}%`,
-                                                    }}
-                                                />
+                                                    className="h-2 rounded-full bg-muted"
+                                                    role="meter"
+                                                    aria-label={`${name} share of take-home income`}
+                                                    aria-valuemin={0}
+                                                    aria-valuemax={100}
+                                                    aria-valuenow={Math.min(
+                                                        100,
+                                                        share ?? 0,
+                                                    )}
+                                                    aria-valuetext={
+                                                        share === null
+                                                            ? 'No take-home income set'
+                                                            : `${share.toFixed(1)}% of take-home income`
+                                                    }
+                                                >
+                                                    <div
+                                                        className="h-2 rounded-full bg-primary"
+                                                        style={{
+                                                            width: `${Math.min(100, share ?? 0)}%`,
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
                                 <p className="border-t pt-4 text-xs leading-relaxed text-muted-foreground">
                                     Amounts are annualised averages. Bill
                                     funding is already part of your bills, so it
@@ -1161,7 +1209,20 @@ export default function Budget(props: BudgetProps) {
                                 onEdit={edit}
                                 onHistory={(item) => setHistoryId(item.id)}
                                 period={preferredPeriod}
-                                balance={view === 'plan' ? balance : undefined}
+                                balance={
+                                    view === 'plan'
+                                        ? {
+                                              ...balance,
+                                              rows: balance.rows.filter(
+                                                  (row) =>
+                                                      row.source !==
+                                                          'mortgage' ||
+                                                      props.household
+                                                          .mortgage_enabled,
+                                              ),
+                                          }
+                                        : undefined
+                                }
                             />
                         ) : (
                             <Empty

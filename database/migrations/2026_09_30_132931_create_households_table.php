@@ -13,6 +13,8 @@ return new class extends Migration
             $table->string('name');
             $table->string('preferred_frequency')->nullable();
             $table->json('categories')->nullable();
+            $table->boolean('mortgage_enabled')->default(true);
+            $table->boolean('debts_enabled')->default(false);
             $table->timestamps();
         });
         Schema::create('household_user', function (Blueprint $table) {

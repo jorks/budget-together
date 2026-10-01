@@ -6,6 +6,7 @@ use App\Http\Controllers\BillPaymentController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\BudgetItemController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\DebtController;
 use App\Http\Controllers\HouseholdController;
 use App\Http\Controllers\HouseholdInvitationController;
 use App\Http\Controllers\MortgageController;
@@ -20,6 +21,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('plan', [BudgetController::class, 'index'])->name('plan');
     Route::get('calendar', [BudgetController::class, 'index'])->name('calendar');
     Route::get('funds', [BudgetController::class, 'index'])->name('funds');
+    Route::resource('debts', DebtController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('mortgage', [MortgageController::class, 'index'])->name('mortgage.index');
     Route::put('mortgage', [MortgageController::class, 'update'])->name('mortgage.update');
     Route::get('accounts', [BudgetController::class, 'index'])->name('accounts');

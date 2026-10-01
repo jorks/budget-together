@@ -26,7 +26,7 @@ export type Payment = {
     notes: string | null;
 };
 export type BudgetItem = {
-    source?: 'mortgage' | null;
+    source?: 'mortgage' | 'debt' | null;
     id: number;
     name: string;
     kind: Kind;
@@ -85,7 +85,7 @@ export type TaxBracket = {
     rate: number;
 };
 export type BillEvent = {
-    source?: 'mortgage' | null;
+    source?: 'mortgage' | 'debt' | null;
     category: string | null;
     kind: 'income' | 'bill';
     cadence: string;
@@ -106,7 +106,13 @@ export type BudgetProps = {
         equivalents: Equivalents;
     }[];
     view: string;
-    household: { id: number; name: string; preferred_frequency: Period | null };
+    household: {
+        id: number;
+        name: string;
+        preferred_frequency: Period | null;
+        mortgage_enabled: boolean;
+        debts_enabled: boolean;
+    };
     members: { id: number; name: string; email: string }[];
     items: BudgetItem[];
     incomeTaxEstimates: (BudgetItem & {

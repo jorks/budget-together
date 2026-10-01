@@ -497,10 +497,13 @@ export function Accounts({
                                         <span className="text-xs text-muted-foreground">
                                             {item.kind} ·{' '}
                                             {item.category || 'Uncategorised'}
-                                            {item.source === 'mortgage' && (
+                                            {(item.source === 'mortgage' ||
+                                                item.source === 'debt') && (
                                                 <span className="block text-xs text-muted-foreground">
-                                                    Calculated · manage in
-                                                    Mortgage
+                                                    Calculated · manage in{' '}
+                                                    {item.source === 'debt'
+                                                        ? 'Debts & financing'
+                                                        : 'Mortgage'}
                                                 </span>
                                             )}
                                             {item.saving_account_id ===

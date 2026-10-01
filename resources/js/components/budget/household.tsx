@@ -2,6 +2,7 @@ import { Link, router, useForm } from '@inertiajs/react';
 import { Copy, Users, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { dateLabel, Field, Panel } from '@/components/budget/shared';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { store, destroy } from '@/routes/invitations';
 import { update, member as updateMember } from '@/routes/household';
@@ -83,6 +84,10 @@ export function Household({
     BudgetProps,
     'household' | 'members' | 'invitations' | 'invitation_url'
 >) {
+    const featureForm = useForm({
+        mortgage_enabled: household.mortgage_enabled,
+        debts_enabled: household.debts_enabled,
+    });
     const form = useForm({ email: '' });
     const householdForm = useForm({ name: household.name });
     const frequencyForm = useForm({
@@ -194,6 +199,59 @@ export function Household({
                             }
                         >
                             Save budget frequency
+                        </Button>
+                    </form>
+                    <form
+                        className="mt-6 grid gap-4 border-t pt-5"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            featureForm.submit(update(), {
+                                preserveScroll: true,
+                                onSuccess: () => featureForm.setDefaults(),
+                            });
+                        }}
+                    >
+                        <h3 className="font-semibold">Family features</h3>
+                        <p className="text-sm text-muted-foreground">
+                            Choose what applies to your family. Switching a
+                            feature off hides its section and excludes its
+                            repayments from your budget. Saved details are kept
+                            for when you turn it back on.
+                        </p>
+                        {(['mortgage_enabled', 'debts_enabled'] as const).map(
+                            (feature) => (
+                                <div key={feature} className="grid gap-2">
+                                    <label className="flex items-center gap-3">
+                                        <Checkbox
+                                            checked={featureForm.data[feature]}
+                                            onCheckedChange={(checked) =>
+                                                featureForm.setData(
+                                                    feature,
+                                                    checked === true,
+                                                )
+                                            }
+                                        />
+                                        {feature === 'mortgage_enabled'
+                                            ? 'Mortgage'
+                                            : 'Debts & financing'}
+                                    </label>
+                                    {featureForm.errors[feature] && (
+                                        <p
+                                            role="alert"
+                                            className="text-sm text-destructive"
+                                        >
+                                            {featureForm.errors[feature]}
+                                        </p>
+                                    )}
+                                </div>
+                            ),
+                        )}
+                        <Button
+                            disabled={
+                                featureForm.processing || !featureForm.isDirty
+                            }
+                        >
+                            Save family features
                         </Button>
                     </form>
                     {editingMember && (

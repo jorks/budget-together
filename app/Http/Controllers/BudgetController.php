@@ -35,7 +35,7 @@ class BudgetController extends Controller
 
         return Inertia::render('budget/index', [
             'view' => $request->route()->getName() === 'dashboard' ? 'overview' : $request->route()->getName(),
-            'household' => $household->only(['id', 'name', 'preferred_frequency']),
+            'household' => $household->only(['id', 'name', 'preferred_frequency', 'mortgage_enabled', 'debts_enabled']),
             'members' => $household->users()->orderBy('name')->get(['users.id', 'name', 'email']),
             'items' => $items->map(fn (BudgetItem $item): array => $calculator->present($item, $today)),
             'totals' => $calculator->totals($items),

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
+ * @property 'mortgage'|'debt'|null $source
  * @property CarbonImmutable|null $pay_date
  * @property CarbonImmutable|null $due_date
  * @property CarbonImmutable|null $saving_start_date

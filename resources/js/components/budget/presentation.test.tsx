@@ -611,3 +611,48 @@ it('the spending plan uses managed mortgage repayments instead of duplicate lega
     );
     expect(result.rows[2].equivalents.annually).toBe(1920000);
 });
+
+it('links generated debt repayments to financing and keeps them out of ordinary bill editing', () => {
+    const debt = {
+        ...salary,
+        id: -1000000001,
+        source: 'debt',
+        kind: 'bill',
+        name: 'Car loan repayment',
+        category: 'Debts & financing',
+        account: null,
+        tax_estimate: null,
+    } as BudgetItem;
+    const html = renderToStaticMarkup(
+        <ItemTable
+            items={[debt]}
+            period="monthly"
+            onEdit={() => {}}
+            onHistory={() => {}}
+        />,
+    );
+    expect(html).toContain('href="/debts"');
+    expect(html).toContain('From Debts &amp; financing');
+    expect(html).toContain('Manage debt');
+    expect(html).not.toContain('Edit Car loan repayment');
+    expect(html).not.toContain('Record payment');
+});
+
+it('separates debt repayments from other bills without changing the spending plan total', () => {
+    const debt = {
+        ...salary,
+        source: 'debt',
+        kind: 'bill',
+        equivalents: {
+            annually: 120000,
+            monthly: 10000,
+            fortnightly: 4615,
+            weekly: 2308,
+        },
+    } as BudgetItem;
+    const result = planBalance([debt], balanceTotals);
+    expect(result.rows[2].equivalents.annually).toBe(3000000);
+    expect(result.rows[3].equivalents.annually).toBe(120000);
+    expect(result.rows[3].source).toBe('debt');
+    expect(result.remaining).toEqual(balanceTotals.remaining);
+});

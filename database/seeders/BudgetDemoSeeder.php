@@ -21,7 +21,7 @@ class BudgetDemoSeeder extends Seeder
 
         $james = User::query()->firstOrCreate(['email' => 'james@example.test'], ['name' => 'James (demo)', 'password' => Hash::make('password'), 'email_verified_at' => now()]);
         $sasha = User::query()->firstOrCreate(['email' => 'sasha@example.test'], ['name' => 'Sasha (demo)', 'password' => Hash::make('password'), 'email_verified_at' => now()]);
-        $household = $james->households()->first() ?? Household::query()->create(['name' => 'James & Sasha · Demo', 'preferred_frequency' => 'fortnightly']);
+        $household = $james->households()->first() ?? Household::query()->create(['name' => 'James & Sasha · Demo', 'preferred_frequency' => 'fortnightly', 'debts_enabled' => true]);
         if ($household->categories === null) {
             $household->update(['categories' => ['Pets', 'Home maintenance']]);
         }
@@ -37,6 +37,7 @@ class BudgetDemoSeeder extends Seeder
         $this->account($household, $bank, 'Home mortgage', 'mortgage', -65000000, 'Fictional $650,000 loan; repayments assume approximately 6% interest over 30 years');
 
         $this->call(MortgageDemoSeeder::class);
+        $this->call(DebtDemoSeeder::class);
 
         $this->item($household, 'James salary', ['kind' => 'income', 'category' => 'Salary', 'person' => 'James', 'pay_date' => now('Australia/Melbourne')->startOfMonth()->addDays(8)->toDateString(), 'salary_sacrifice_cents' => 300000, 'workplace_giving_cents' => 26000, 'gross_annual_cents' => 12000000, 'bonus_annual_cents' => 0, 'amount_cents' => 341782, 'cadence' => 'fortnightly', 'account_id' => $offset->id, 'use_tax_estimate' => true, 'notes' => 'Fictional salary; estimated take-home pay, with bonus excluded from the base plan.']);
         $this->item($household, 'Sasha salary', ['kind' => 'income', 'category' => 'Salary', 'person' => 'Sasha', 'pay_date' => now('Australia/Melbourne')->startOfMonth()->addDays(14)->toDateString(), 'gross_annual_cents' => 9000000, 'amount_cents' => 589000, 'cadence' => 'monthly', 'account_id' => $offset->id, 'use_tax_estimate' => true]);

@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     Banknote,
     CalendarDays,
@@ -32,6 +32,7 @@ import {
     household,
 } from '@/routes';
 import { index as mortgage } from '@/routes/mortgage';
+import { index as debts } from '@/routes/debts';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -39,6 +40,7 @@ const mainNavItems: NavItem[] = [
     { title: 'Income', href: income(), icon: Banknote },
     { title: 'Bills & expenses', href: bills(), icon: Receipt },
     { title: 'Mortgage', href: mortgage(), icon: House },
+    { title: 'Debts & financing', href: debts(), icon: Landmark },
     { title: 'Spending plan', href: plan(), icon: ListChecks },
     { title: 'Money calendar', href: calendar(), icon: CalendarDays },
     { title: 'Save ahead', href: funds(), icon: Sprout },
@@ -47,6 +49,16 @@ const mainNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
+    const { features } = usePage<{
+        features: { mortgage_enabled: boolean; debts_enabled: boolean };
+    }>().props;
+    const items = mainNavItems.filter((item) =>
+        item.title === 'Mortgage'
+            ? features.mortgage_enabled
+            : item.title === 'Debts & financing'
+              ? features.debts_enabled
+              : true,
+    );
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -62,7 +74,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={items} />
             </SidebarContent>
 
             <SidebarFooter>

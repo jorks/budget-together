@@ -16,6 +16,7 @@ class MortgageController extends Controller
     {
         $household = $households->forUser($request->user());
         Gate::authorize('manage', $household);
+        abort_unless($household->mortgage_enabled, 404);
 
         return Inertia::render('mortgage/index', ['mortgage' => $household->mortgage, 'accounts' => $household->accounts()->orderBy('name')->get(['id', 'name'])]);
     }
@@ -24,6 +25,7 @@ class MortgageController extends Controller
     {
         $household = $households->forUser($request->user());
         Gate::authorize('manage', $household);
+        abort_unless($household->mortgage_enabled, 404);
         $household->mortgage()->updateOrCreate([], $request->validated());
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Mortgage details saved.']);
 

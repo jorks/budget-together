@@ -41,6 +41,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'features' => fn (): array => $request->user()?->households()->first()?->only(['mortgage_enabled', 'debts_enabled']) ?? ['mortgage_enabled' => true, 'debts_enabled' => false],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

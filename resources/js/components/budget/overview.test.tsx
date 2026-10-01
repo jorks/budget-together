@@ -16,7 +16,13 @@ function budgetProps(view: string): BudgetProps {
     const amounts = { weekly: 0, fortnightly: 0, monthly: 0, annually: 0 };
     return {
         view,
-        household: { id: 1, name: 'James & Sasha', preferred_frequency: null },
+        household: {
+            id: 1,
+            name: 'James & Sasha',
+            preferred_frequency: null,
+            mortgage_enabled: true,
+            debts_enabled: false,
+        },
         items: [],
         incomeTaxEstimates: [],
         categories: [],
@@ -362,4 +368,17 @@ it('shows no income comparison instead of misleading percentages when take-home 
         breakdown.match(/aria-valuetext="No take-home income set"/g),
     ).toHaveLength(4);
     expect(breakdown.match(/style="width:0%"/g)).toHaveLength(4);
+});
+
+it('hides disabled mortgage features in the overview and spending plan', () => {
+    vi.mocked(useBudgetPeriod).mockReturnValue({
+        preferredPeriod: 'annually',
+        period: 'annually',
+    });
+    for (const view of ['overview', 'plan']) {
+        const props = budgetProps(view);
+        props.household.mortgage_enabled = false;
+        const html = renderToStaticMarkup(<Budget {...props} />);
+        expect(html).not.toContain('href="/mortgage"');
+    }
 });

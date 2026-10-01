@@ -2,7 +2,7 @@ import type { BudgetItem, BudgetProps, Equivalents } from '@/types/budget';
 
 export type CalculatedRow = {
     direction: 'income' | 'expense';
-    source?: 'mortgage';
+    source?: 'mortgage' | 'debt';
     label: string;
     description: string;
     equivalents: Equivalents;
@@ -40,6 +40,22 @@ export function planBalance(
         0,
     );
 
+    const debtAnnual = items
+        .filter((item) => item.source === 'debt' && item.is_active)
+        .reduce((sum, item) => sum + item.equivalents.annually, 0);
+    const debtRows: CalculatedRow[] = items.some(
+        (item) => item.source === 'debt',
+    )
+        ? [
+              {
+                  direction: 'expense',
+                  source: 'debt',
+                  label: 'Debts & financing',
+                  description: 'Planned repayments, including extras',
+                  equivalents: equivalents(debtAnnual),
+              },
+          ]
+        : [];
     return {
         rows: [
             {
@@ -60,9 +76,14 @@ export function planBalance(
             {
                 direction: 'expense',
                 label: 'Bills & expenses',
-                description: 'Calculated from bills, excluding mortgage',
-                equivalents: equivalents(totals.bill.annually - mortgageAnnual),
+                description: debtRows.length
+                    ? 'Calculated from bills, excluding mortgage and financing'
+                    : 'Calculated from bills, excluding mortgage',
+                equivalents: equivalents(
+                    totals.bill.annually - mortgageAnnual - debtAnnual,
+                ),
             },
+            ...debtRows,
         ],
         remaining: totals.remaining,
     };

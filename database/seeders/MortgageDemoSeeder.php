@@ -20,10 +20,10 @@ class MortgageDemoSeeder extends Seeder
         }
 
         $legacy = $household->items()->where('kind', 'bill')->where('name', 'Mortgage repayment')->where('category', 'Mortgage')->first();
-        $accountId = $legacy?->account_id ?? $household->accounts()->where('name', 'Bills account')->value('id');
+        $accountId = $legacy->account_id ?? $household->accounts()->where('name', 'Bills account')->value('id');
         $household->mortgage()->firstOrCreate([], Mortgage::factory()->for($household)->accelerated()->make([
             'account_id' => $accountId,
-            'due_date' => $legacy?->due_date ?? now('Australia/Melbourne')->addDays(2)->toDateString(),
+            'due_date' => $legacy->due_date ?? now('Australia/Melbourne')->addDays(2)->toDateString(),
         ])->only(['name', 'balance_cents', 'annual_rate', 'term_years', 'frequency', 'offset_cents', 'extra_cents', 'due_date', 'account_id']));
 
         $household->items()->where('kind', 'bill')->where('name', 'Mortgage repayment')->where('category', 'Mortgage')->whereDoesntHave('payments')->delete();

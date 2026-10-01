@@ -14,24 +14,33 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property list<string>|null $categories
  * @property string|null $preferred_frequency
  */
-#[Fillable(['name', 'categories', 'preferred_frequency'])]
+#[Fillable(['name', 'categories', 'preferred_frequency', 'mortgage_enabled', 'debts_enabled'])]
 class Household extends Model
 {
     /** @use HasFactory<HouseholdFactory> */
     use HasFactory;
+
+    /** @var array<string, mixed> */
+    protected $attributes = ['mortgage_enabled' => true, 'debts_enabled' => false];
 
     public const DEFAULT_CATEGORIES = ['Salary', 'Bonus', 'Mortgage', 'Daycare', 'Utilities', 'Subscriptions', 'Insurance', 'Transport', 'Health & fitness', 'Personal', 'Everyday', 'Savings'];
 
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['categories' => 'array'];
+        return ['categories' => 'array', 'mortgage_enabled' => 'boolean', 'debts_enabled' => 'boolean'];
     }
 
     /** @return BelongsToMany<User, $this> */
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class);
+    }
+
+    /** @return HasMany<Debt, $this> */
+    public function debts(): HasMany
+    {
+        return $this->hasMany(Debt::class);
     }
 
     /** @return HasOne<Mortgage, $this> */

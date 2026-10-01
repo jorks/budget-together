@@ -73,10 +73,10 @@ test('demo seeding uses a demo household with fictional estimated finances', fun
     $this->actingAs(User::query()->where('email', 'james@example.test')->firstOrFail())->get(route('income'))->assertInertia(fn (AssertableInertia $page) => $page->where('categories', fn ($categories) => collect($categories)->contains('Salary') && collect($categories)->contains('Bonus')));
     $totals = app(BudgetCalculator::class)->totals(app(HouseholdBudget::class)->items($household));
     expect($totals['income']['annually'])->toBe(15954320);
-    expect($totals['bill']['annually'])->toBe(8638696);
+    expect($totals['bill']['annually'])->toBe(10346696);
     expect($totals['spending']['weekly'])->toBe(71538);
     expect($totals['saving']['monthly'])->toBe(150000);
-    expect($totals['remaining']['monthly'])->toBe(149635);
+    expect($totals['remaining']['monthly'])->toBe(7302);
     $this->assertDatabaseHas('budget_items', ['household_id' => $household->id, 'name' => 'Weekly family spending', 'amount_cents' => 60000, 'cadence' => 'weekly']);
     foreach ($household->items->where('has_sinking_fund', true) as $item) {
         expect(app(BudgetCalculator::class)->sinkingFund($item, CarbonImmutable::instance(now()))['on_track'])->toBeTrue();
