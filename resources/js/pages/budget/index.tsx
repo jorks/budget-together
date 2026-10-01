@@ -72,12 +72,37 @@ const titles: Record<string, [string, string]> = {
         'One shared view for the people planning a life together.',
     ],
 };
+function annualPreTaxIncome(item: BudgetItem): number | null {
+    return (
+        item.gross_annual_cents ??
+        (item.category?.trim().toLowerCase() === 'bonus'
+            ? item.bonus_annual_cents
+            : null) ??
+        null
+    );
+}
+
+function includedInTotal(item: BudgetItem): boolean {
+    return (
+        item.is_active &&
+        !(
+            item.kind === 'income' &&
+            item.category?.trim().toLowerCase() === 'bonus' &&
+            !item.include_bonus
+        )
+    );
+}
+
 export function ItemTable({
     items,
     onEdit,
     onHistory,
     period,
+    summaryOnly = false,
+    totalLabel = 'Total',
 }: {
+    summaryOnly?: boolean;
+    totalLabel?: string;
     items: BudgetItem[];
     onEdit: (item: BudgetItem) => void;
     onHistory: (item: BudgetItem) => void;
@@ -85,9 +110,21 @@ export function ItemTable({
 }) {
     const columns: Period[] = ['annually', 'monthly', 'fortnightly', 'weekly'];
     const showPreTaxIncome = items.some((item) => item.kind === 'income');
+    const included = items.filter(includedInTotal);
+    const preTaxAmounts = included
+        .map(annualPreTaxIncome)
+        .filter((amount) => amount !== null);
     return (
         <div className="overflow-x-auto rounded-xl border bg-card">
-            <table className="w-full min-w-200 text-left text-sm">
+            <table className="w-full min-w-200 table-fixed text-left text-sm">
+                <colgroup>
+                    <col />
+                    {showPreTaxIncome && <col className="w-40" />}
+                    {columns.map((column) => (
+                        <col key={column} className="w-36" />
+                    ))}
+                    <col className="w-32" />
+                </colgroup>
                 <thead className="border-b bg-primary/5 text-xs text-muted-foreground">
                     <tr>
                         <th className="px-4 py-3 font-medium">
@@ -121,13 +158,13 @@ export function ItemTable({
                                 )}
                             </th>
                         ))}
-                        <th className="w-28 px-2 py-3">
+                        <th className="px-2 py-3">
                             <span className="sr-only">Actions</span>
                         </th>
                     </tr>
                 </thead>
                 <tbody>
-                    {items.map((item) => (
+                    {(summaryOnly ? [] : items).map((item) => (
                         <tr
                             key={item.id}
                             className={cn(
@@ -187,12 +224,8 @@ export function ItemTable({
                             </td>
                             {showPreTaxIncome && (
                                 <td className="w-40 px-4 py-4 text-right whitespace-nowrap tabular-nums">
-                                    {item.gross_annual_cents != null ? (
-                                        money(item.gross_annual_cents)
-                                    ) : item.category?.trim().toLowerCase() ===
-                                          'bonus' &&
-                                      item.bonus_annual_cents != null ? (
-                                        money(item.bonus_annual_cents)
+                                    {annualPreTaxIncome(item) != null ? (
+                                        money(annualPreTaxIncome(item)!)
                                     ) : (
                                         <span aria-label="Not provided">—</span>
                                     )}
@@ -253,10 +286,107 @@ export function ItemTable({
                         </tr>
                     ))}
                 </tbody>
+                <tfoot className="border-t-2 bg-primary/5 font-semibold">
+                    <tr>
+                        <th scope="row" className="px-4 py-4">
+                            {totalLabel}
+                        </th>
+                        {showPreTaxIncome && (
+                            <td className="w-40 px-4 py-4 text-right whitespace-nowrap tabular-nums">
+                                {preTaxAmounts.length ? (
+                                    money(
+                                        preTaxAmounts.reduce(
+                                            (sum, amount) => sum + amount,
+                                            0,
+                                        ),
+                                    )
+                                ) : (
+                                    <span aria-label="Not provided">—</span>
+                                )}
+                            </td>
+                        )}
+                        {columns.map((column) => (
+                            <td
+                                key={column}
+                                className={cn(
+                                    'w-36 px-4 py-4 text-right whitespace-nowrap tabular-nums',
+                                    period === column &&
+                                        'bg-primary/8 text-primary',
+                                )}
+                            >
+                                {money(
+                                    included.reduce(
+                                        (sum, item) =>
+                                            sum + item.equivalents[column],
+                                        0,
+                                    ),
+                                )}
+                            </td>
+                        ))}
+                        <td />
+                    </tr>
+                </tfoot>
             </table>
         </div>
     );
 }
+export function ItemTables({
+    items,
+    groupBy,
+    onEdit,
+    onHistory,
+    period,
+}: {
+    items: BudgetItem[];
+    groupBy: string;
+    onEdit: (item: BudgetItem) => void;
+    onHistory: (item: BudgetItem) => void;
+    period: Period | null;
+}) {
+    return (
+        <div className="grid gap-5">
+            {groupBudgetItems(items, groupBy).map(([name, grouped]) => (
+                <section key={name}>
+                    {groupBy !== 'none' && (
+                        <h2 className="mb-3 flex items-center gap-2 font-semibold">
+                            {groupBy === 'frequency' ? (
+                                <Repeat className="size-4" />
+                            ) : (
+                                <CategoryIcon category={name} />
+                            )}
+                            {groupBy === 'frequency'
+                                ? name.startsWith('custom:')
+                                    ? `${name.split(':')[1]} payments per year`
+                                    : cadences[name]
+                                : name}
+                            <span className="text-xs text-muted-foreground">
+                                ({grouped.length})
+                            </span>
+                        </h2>
+                    )}
+                    <ItemTable
+                        items={grouped}
+                        onEdit={onEdit}
+                        onHistory={onHistory}
+                        period={period}
+                        totalLabel={groupBy === 'none' ? 'Total' : 'Subtotal'}
+                    />
+                </section>
+            ))}
+            {groupBy !== 'none' && (
+                <ItemTable
+                    items={items}
+                    onEdit={onEdit}
+                    onHistory={onHistory}
+                    period={period}
+                    summaryOnly
+                    totalLabel="Grand total"
+                />
+            )}
+        </div>
+    );
+}
+
 function FundCards({
     items,
     onEdit,
@@ -408,6 +538,11 @@ export default function Budget(props: BudgetProps) {
                 Number(first.category?.trim().toLowerCase() === 'bonus') -
                 Number(second.category?.trim().toLowerCase() === 'bonus'),
         );
+    } else if (groupBy === 'none') {
+        const sorted = groupBudgetItems(visible, 'category').flatMap(
+            ([, grouped]) => grouped,
+        );
+        visible.splice(0, visible.length, ...sorted);
     }
     const upcoming = props.events
         .filter((event) => event.kind === 'bill' && event.date >= today)
@@ -781,62 +916,13 @@ export default function Budget(props: BudgetProps) {
                             </div>
                         )}
                         {visible.length ? (
-                            <div className="grid gap-5">
-                                {groupBudgetItems(
-                                    visible,
-                                    view === 'income' ? 'none' : groupBy,
-                                ).map(([name, grouped]) => (
-                                    <section key={name}>
-                                        {view !== 'income' &&
-                                            groupBy !== 'none' && (
-                                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                                                    <h2 className="flex items-center gap-2 font-semibold">
-                                                        {groupBy ===
-                                                        'frequency' ? (
-                                                            <Repeat className="size-4" />
-                                                        ) : (
-                                                            <CategoryIcon
-                                                                category={name}
-                                                            />
-                                                        )}
-                                                        {groupBy === 'frequency'
-                                                            ? name.startsWith(
-                                                                  'custom:',
-                                                              )
-                                                                ? `${name.split(':')[1]} payments per year`
-                                                                : cadences[name]
-                                                            : name}{' '}
-                                                        <span className="text-xs text-muted-foreground">
-                                                            ({grouped.length})
-                                                        </span>
-                                                    </h2>
-                                                    <span className="text-sm tabular-nums">
-                                                        {money(
-                                                            grouped.reduce(
-                                                                (sum, item) =>
-                                                                    sum +
-                                                                    item
-                                                                        .equivalents[
-                                                                        period
-                                                                    ],
-                                                                0,
-                                                            ),
-                                                        )}{' '}
-                                                        / {periodLabels[period]}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        <ItemTable
-                                            items={grouped}
-                                            onEdit={edit}
-                                            onHistory={(item) =>
-                                                setHistoryId(item.id)
-                                            }
-                                            period={preferredPeriod}
-                                        />
-                                    </section>
-                                ))}
-                            </div>
+                            <ItemTables
+                                items={visible}
+                                groupBy={view === 'income' ? 'none' : groupBy}
+                                onEdit={edit}
+                                onHistory={(item) => setHistoryId(item.id)}
+                                period={preferredPeriod}
+                            />
                         ) : (
                             <Empty
                                 title={

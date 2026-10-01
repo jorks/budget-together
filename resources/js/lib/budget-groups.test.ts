@@ -15,6 +15,7 @@ const item = (id: number, changes: Partial<BudgetItem> = {}) =>
         account_id: null,
         saving_account_id: null,
         is_active: true,
+        equivalents: { annually: 0, monthly: 0, fortnightly: 0, weekly: 0 },
         ...changes,
     }) as BudgetItem;
 const account = (id: number, type: string, bank: Account['bank'] = null) =>
@@ -82,4 +83,37 @@ describe('accounts', () => {
         ]);
         expect(linkedAccountItems([other], 5)).toEqual([]);
     });
+});
+
+it('orders categories by active annual total with alphabetical ties', () => {
+    const expense = (
+        id: number,
+        category: string | null,
+        annually: number,
+        is_active = true,
+    ) =>
+        item(id, {
+            category,
+            is_active,
+            equivalents: { annually, monthly: 0, fortnightly: 0, weekly: 0 },
+        });
+    const items = [
+        expense(1, 'Utilities', 600),
+        expense(2, 'Housing', 1000),
+        expense(3, 'Utilities', 600),
+        expense(4, 'Food', 1000),
+        expense(5, 'Food', 10000, false),
+        expense(6, null, 100),
+    ];
+
+    const groups = groupBudgetItems(items, 'category');
+
+    expect(groups.map(([name]) => name)).toEqual([
+        'Utilities',
+        'Food',
+        'Housing',
+        'Uncategorised',
+    ]);
+    expect(groups[0][1].map((item) => item.id)).toEqual([1, 3]);
+    expect(items.map((item) => item.id)).toEqual([1, 2, 3, 4, 5, 6]);
 });

@@ -147,3 +147,67 @@ it('lists bonuses below salaries and marks an excluded bonus', () => {
     expect(html).toContain('$110,000.00');
     expect(html).toContain('Excluded from budget');
 });
+
+it.each(['bills', 'plan'])(
+    'sorts ungrouped categories by highest total cost on %s',
+    (view) => {
+        vi.mocked(useBudgetPeriod).mockReturnValue({
+            preferredPeriod: 'fortnightly',
+            period: 'fortnightly',
+        });
+        const props = budgetProps(view);
+        const item = {
+            kind: view === 'bills' ? 'bill' : 'spending',
+            is_active: true,
+            has_sinking_fund: false,
+            equivalents: { weekly: 0, fortnightly: 0, monthly: 0, annually: 0 },
+        } as BudgetItem;
+        props.items = [
+            { ...item, id: 1, name: 'Electricity', category: 'Utilities' },
+            { ...item, id: 2, name: 'Unassigned expense', category: null },
+            {
+                ...item,
+                id: 3,
+                name: 'Rent',
+                category: 'Housing',
+                equivalents: {
+                    annually: 2400000,
+                    monthly: 200000,
+                    fortnightly: 92308,
+                    weekly: 46154,
+                },
+            },
+            { ...item, id: 4, name: 'Water', category: 'Utilities' },
+            {
+                ...item,
+                id: 5,
+                name: 'Groceries',
+                category: 'Food',
+                equivalents: {
+                    annually: 520000,
+                    monthly: 43333,
+                    fortnightly: 20000,
+                    weekly: 10000,
+                },
+            },
+        ];
+
+        const html = renderToStaticMarkup(<Budget {...props} />);
+        const rows = html.match(/<tbody>[\s\S]*?<\/tbody>/)?.[0] ?? '';
+
+        expect(
+            rows
+                .match(/font-semibold hover:underline">([^<]+)/g)
+                ?.map((match) => match.split('>')[1]),
+        ).toEqual([
+            'Rent',
+            'Groceries',
+            'Unassigned expense',
+            'Electricity',
+            'Water',
+        ]);
+        expect(props.items.map((item) => item.id)).toEqual([1, 2, 3, 4, 5]);
+        expect(html).not.toContain('Subtotal');
+        expect(html).toContain('Total');
+    },
+);

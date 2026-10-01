@@ -16,7 +16,18 @@ export function groupBudgetItems(
                   : '';
         groups.set(key, [...(groups.get(key) ?? []), item]);
     }
-    return [...groups].sort(([a], [b]) => a.localeCompare(b));
+    const annualTotal = (group: BudgetItem[]) =>
+        group.reduce(
+            (sum, item) =>
+                sum + (item.is_active ? item.equivalents.annually : 0),
+            0,
+        );
+    return [...groups].sort(
+        ([a, first], [b, second]) =>
+            (by === 'category'
+                ? annualTotal(second) - annualTotal(first)
+                : 0) || a.localeCompare(b),
+    );
 }
 
 export function groupAccounts(

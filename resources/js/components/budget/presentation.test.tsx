@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { ItemTable } from '../../pages/budget/index';
+import { ItemTable, ItemTables } from '../../pages/budget/index';
 import type { BudgetItem, Period } from '../../types/budget';
 import { TaxEstimateCard } from './tax-estimate-card';
 
@@ -47,7 +47,7 @@ describe('budget presentation', () => {
                 onHistory={() => {}}
             />,
         );
-        expect(html.match(/\$[\d,]+\.\d{2}/g)).toEqual([
+        expect(html.split('<tfoot')[0].match(/\$[\d,]+\.\d{2}/g)).toEqual([
             '$13,000.00',
             '$1,083.33',
             '$500.00',
@@ -221,4 +221,102 @@ it('keeps expense tables without income columns or tax labels', () => {
     expect(html).not.toContain('Annual pre-tax income');
     expect(html).not.toContain('After tax');
     expect(html).toContain('$250.00');
+});
+
+it.each(['none', 'category', 'frequency'])(
+    'totals each table and grouped grand totals (%s)',
+    (groupBy) => {
+        const items = [
+            {
+                ...salary,
+                id: 1,
+                kind: 'bill' as const,
+                category: 'Housing',
+                cadence: 'monthly' as const,
+            },
+            {
+                ...salary,
+                id: 2,
+                kind: 'bill' as const,
+                category: 'Utilities',
+                cadence: 'weekly' as const,
+            },
+            {
+                ...salary,
+                id: 3,
+                kind: 'bill' as const,
+                category: 'Housing',
+                is_active: false,
+            },
+        ];
+        const html = renderToStaticMarkup(
+            <ItemTables
+                items={items}
+                groupBy={groupBy}
+                period="fortnightly"
+                onEdit={() => {}}
+                onHistory={() => {}}
+            />,
+        );
+        const footers = html.match(/<tfoot[\s\S]*?<\/tfoot>/g) ?? [];
+
+        expect(footers).toHaveLength(groupBy === 'none' ? 1 : 3);
+        expect(footers.at(-1)?.match(/\$[\d,]+\.\d{2}/g)).toEqual([
+            '$26,000.00',
+            '$2,166.66',
+            '$1,000.00',
+            '$500.00',
+        ]);
+        if (groupBy !== 'none') {
+            expect(footers[0]).toContain('Subtotal');
+            expect(footers[1]).toContain('Subtotal');
+            expect(footers[0]).toContain('$13,000.00');
+            expect(footers[1]).toContain('$13,000.00');
+            expect(footers[2]).toContain('Grand total');
+        }
+    },
+);
+
+it('totals annual pre-tax and take-home income while excluding paused items and excluded bonuses', () => {
+    const html = renderToStaticMarkup(
+        <ItemTable
+            items={[
+                { ...salary, gross_annual_cents: 15500000 },
+                {
+                    ...salary,
+                    id: 2,
+                    category: 'Bonus',
+                    gross_annual_cents: null,
+                    bonus_annual_cents: 1000000,
+                    include_bonus: false,
+                },
+                {
+                    ...salary,
+                    id: 3,
+                    category: 'Bonus',
+                    gross_annual_cents: null,
+                    bonus_annual_cents: 200000,
+                    include_bonus: true,
+                },
+                {
+                    ...salary,
+                    id: 4,
+                    gross_annual_cents: 9000000,
+                    is_active: false,
+                },
+            ]}
+            period="weekly"
+            onEdit={() => {}}
+            onHistory={() => {}}
+        />,
+    );
+    const footer = html.match(/<tfoot[\s\S]*?<\/tfoot>/)?.[0] ?? '';
+
+    expect(footer.match(/\$[\d,]+\.\d{2}/g)).toEqual([
+        '$157,000.00',
+        '$26,000.00',
+        '$2,166.66',
+        '$1,000.00',
+        '$500.00',
+    ]);
 });
