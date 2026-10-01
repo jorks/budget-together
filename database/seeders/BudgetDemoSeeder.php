@@ -36,6 +36,8 @@ class BudgetDemoSeeder extends Seeder
         $card->update(['credit_limit_cents' => 400000]);
         $this->account($household, $bank, 'Home mortgage', 'mortgage', -65000000, 'Fictional $650,000 loan; repayments assume approximately 6% interest over 30 years');
 
+        $this->call(MortgageDemoSeeder::class);
+
         $this->item($household, 'James salary', ['kind' => 'income', 'category' => 'Salary', 'person' => 'James', 'pay_date' => now('Australia/Melbourne')->startOfMonth()->addDays(8)->toDateString(), 'salary_sacrifice_cents' => 300000, 'workplace_giving_cents' => 26000, 'gross_annual_cents' => 12000000, 'bonus_annual_cents' => 0, 'amount_cents' => 341782, 'cadence' => 'fortnightly', 'account_id' => $offset->id, 'use_tax_estimate' => true, 'notes' => 'Fictional salary; estimated take-home pay, with bonus excluded from the base plan.']);
         $this->item($household, 'Sasha salary', ['kind' => 'income', 'category' => 'Salary', 'person' => 'Sasha', 'pay_date' => now('Australia/Melbourne')->startOfMonth()->addDays(14)->toDateString(), 'gross_annual_cents' => 9000000, 'amount_cents' => 589000, 'cadence' => 'monthly', 'account_id' => $offset->id, 'use_tax_estimate' => true]);
         $household->items()->whereIn('name', ['James salary', 'Sasha salary'])->whereNull('category')->update(['category' => 'Salary']);
@@ -48,7 +50,6 @@ class BudgetDemoSeeder extends Seeder
         $withBonusTakeHome = $tax->estimate($jamesSalary->gross_annual_cents + 500000, $jamesSalary->tax_year, $jamesSalary->include_medicare, $jamesSalary->salary_sacrifice_cents ?? 0, $jamesSalary->workplace_giving_cents ?? 0, $jamesSalary->other_deductions_cents ?? 0)['net_cents'];
         $this->item($household, 'James bonus', ['kind' => 'income', 'category' => 'Bonus', 'person' => 'James', 'include_bonus' => false, 'bonus_annual_cents' => 500000, 'amount_cents' => $withBonusTakeHome - $baseTakeHome, 'cadence' => 'annually', 'pay_date' => now('Australia/Melbourne')->addMonths(2)->toDateString(), 'account_id' => $offset->id, 'use_tax_estimate' => false, 'notes' => 'Fictional annual bonus of $5,000 before tax. Take-home estimated at James’s marginal tax rate, including Medicare; entered separately from salary.']);
         $entries = [
-            ['Mortgage repayment', 'Mortgage', 390000, 'monthly', false],
             ['Childcare', 'Daycare', 70000, 'fortnightly', false],
             ['Electricity', 'Utilities', 34000, 'quarterly', true],
             ['Gas', 'Utilities', 14000, 'quarterly', true],
@@ -68,7 +69,7 @@ class BudgetDemoSeeder extends Seeder
             ['Gym memberships', 'Health & fitness', 6000, 'fortnightly', false],
         ];
         foreach ($entries as $index => [$name, $category, $amount, $cadence, $variable]) {
-            $item = $this->item($household, $name, ['category' => $category, 'amount_cents' => $amount, 'cadence' => $cadence, 'payments_per_year' => $cadence === 'custom' ? 10 : null, 'is_variable' => $variable, 'due_date' => now('Australia/Melbourne')->addDays(2 + $index)->toDateString(), 'account_id' => $category === 'Subscriptions' ? $card->id : $bills->id]);
+            $item = $this->item($household, $name, ['category' => $category, 'amount_cents' => $amount, 'cadence' => $cadence, 'payments_per_year' => $cadence === 'custom' ? 10 : null, 'is_variable' => $variable, 'due_date' => now('Australia/Melbourne')->addDays(3 + $index)->toDateString(), 'account_id' => $category === 'Subscriptions' ? $card->id : $bills->id]);
             if ($variable && ! $item->payments()->exists()) {
                 foreach ([0.90, 1.08, 1.03] as $quarter => $variance) {
                     $item->payments()->create(['amount_cents' => (int) round($amount * $variance), 'paid_on' => now()->subMonths(($quarter + 1) * 3)->toDateString(), 'notes' => 'Demo quarterly bill']);

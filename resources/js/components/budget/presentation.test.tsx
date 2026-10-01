@@ -562,3 +562,52 @@ it.each([
         expect(html.match(/Annual bill/g) ?? []).toHaveLength(labelCount);
     },
 );
+
+it('renders the generated mortgage expense as a locked row managed in Mortgage', () => {
+    const mortgage = {
+        ...salary,
+        id: -1,
+        source: 'mortgage',
+        name: 'Mortgage repayment',
+        kind: 'bill',
+        category: 'Mortgage',
+        tax_estimate: null,
+    } as BudgetItem;
+    const html = renderToStaticMarkup(
+        <ItemTable
+            items={[mortgage]}
+            onEdit={() => {}}
+            onHistory={() => {}}
+            period="monthly"
+        />,
+    );
+    expect(html).toContain('Calculated');
+    expect(html).toContain('From Mortgage · includes extra repayments');
+    expect(html).toContain('href="/mortgage"');
+    expect(html).toContain('Manage mortgage');
+    expect(html).not.toContain('aria-label="Edit Mortgage repayment"');
+    expect(html).not.toContain('aria-label="Delete Mortgage repayment"');
+    expect(html).not.toContain('Actual payments for Mortgage repayment');
+});
+
+it('the spending plan uses managed mortgage repayments instead of duplicate legacy expenses', () => {
+    const mortgage = {
+        ...salary,
+        kind: 'bill',
+        category: 'Mortgage',
+        source: 'mortgage',
+        equivalents: {
+            annually: 1200000,
+            monthly: 100000,
+            fortnightly: 46154,
+            weekly: 23077,
+        },
+    } as BudgetItem;
+    const legacy = { ...mortgage, id: 2, source: null };
+    const result = planBalance([mortgage, legacy], balanceTotals);
+    expect(result.rows[1].equivalents.annually).toBe(1200000);
+    expect(result.rows[1].description).toBe(
+        'Calculated from Mortgage, including extra repayments',
+    );
+    expect(result.rows[2].equivalents.annually).toBe(1920000);
+});

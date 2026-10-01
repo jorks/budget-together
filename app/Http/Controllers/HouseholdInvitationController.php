@@ -45,7 +45,7 @@ class HouseholdInvitationController extends Controller
             $invitation = $this->findInvitation($request, $token, true);
             $current = $user->households()->first();
             if ($current !== null && $current->id !== $invitation->household_id) {
-                if ($current->users()->count() > 1 || $current->items()->exists() || $current->accounts()->exists() || $current->banks()->exists()) {
+                if ($current->users()->count() > 1 || $current->items()->exists() || $current->mortgage()->exists() || $current->accounts()->exists() || $current->banks()->exists()) {
                     throw ValidationException::withMessages(['invitation' => 'Your account already belongs to a household with data. Ask the household owner before moving it.']);
                 }
                 $user->households()->detach($current);

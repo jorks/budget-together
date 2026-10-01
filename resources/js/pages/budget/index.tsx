@@ -41,6 +41,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { bills, calendar, funds, plan } from '@/routes';
 import { destroy } from '@/routes/budget-items';
+import { index as mortgage } from '@/routes/mortgage';
 import { household } from '@/routes';
 import type {
     BudgetItem,
@@ -210,7 +211,16 @@ export function ItemTable({
                                 className="px-4 py-4 font-semibold"
                                 title={row.description}
                             >
-                                {row.label}
+                                {row.source === 'mortgage' ? (
+                                    <Link
+                                        href={mortgage()}
+                                        className="hover:underline"
+                                    >
+                                        {row.label}
+                                    </Link>
+                                ) : (
+                                    row.label
+                                )}
                                 <span className="sr-only">
                                     {row.direction === 'income'
                                         ? ' Money in'
@@ -253,15 +263,31 @@ export function ItemTable({
                                     calculatedRows.length > 0 &&
                                     'border-t border-border/60',
                                 !item.is_active && 'opacity-60',
+                                item.source === 'mortgage' && 'bg-muted/30',
                             )}
                         >
                             <td className="px-4 py-4">
-                                <button
-                                    className="flex items-center gap-2 text-left font-semibold hover:underline"
-                                    onClick={() => onEdit(item)}
-                                >
-                                    {item.name}
-                                </button>
+                                {item.source === 'mortgage' ? (
+                                    <Link
+                                        href={mortgage()}
+                                        className="flex items-center gap-2 text-left font-semibold hover:underline"
+                                    >
+                                        {item.name}
+                                    </Link>
+                                ) : (
+                                    <button
+                                        className="flex items-center gap-2 text-left font-semibold hover:underline"
+                                        onClick={() => onEdit(item)}
+                                    >
+                                        {item.name}
+                                    </button>
+                                )}
+                                {item.source === 'mortgage' && (
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        From Mortgage · includes extra
+                                        repayments
+                                    </p>
+                                )}
                                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                                     <span className="inline-flex items-center gap-1.5">
                                         <CategoryIcon
@@ -332,44 +358,58 @@ export function ItemTable({
                                 </td>
                             ))}
                             <td className="px-2 py-4">
-                                <div className="flex justify-end">
-                                    <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        aria-label={`Edit ${item.name}`}
-                                        onClick={() => onEdit(item)}
-                                    >
-                                        <Pencil className="size-4" />
-                                    </Button>
-                                    {item.kind === 'bill' && (
+                                {item.source === 'mortgage' ? (
+                                    <div className="flex flex-col items-end gap-2">
+                                        <CalculatedIndicator />
+                                        <Link
+                                            href={mortgage()}
+                                            className="text-xs text-primary hover:underline"
+                                        >
+                                            Manage mortgage
+                                        </Link>
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-end">
                                         <Button
                                             size="icon"
                                             variant="ghost"
-                                            aria-label={`Actual payments for ${item.name}`}
-                                            onClick={() => onHistory(item)}
+                                            aria-label={`Edit ${item.name}`}
+                                            onClick={() => onEdit(item)}
                                         >
-                                            <History className="size-4" />
+                                            <Pencil className="size-4" />
                                         </Button>
-                                    )}
-                                    <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        aria-label={`Delete ${item.name}`}
-                                        onClick={() => {
-                                            if (
-                                                window.confirm(
-                                                    `Delete ${item.name} and its recorded payment history? You can pause it instead to keep its history.`,
+                                        {item.kind === 'bill' && (
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                aria-label={`Actual payments for ${item.name}`}
+                                                onClick={() => onHistory(item)}
+                                            >
+                                                <History className="size-4" />
+                                            </Button>
+                                        )}
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            aria-label={`Delete ${item.name}`}
+                                            onClick={() => {
+                                                if (
+                                                    window.confirm(
+                                                        `Delete ${item.name} and its recorded payment history? You can pause it instead to keep its history.`,
+                                                    )
                                                 )
-                                            )
-                                                router.delete(
-                                                    destroy(item.id),
-                                                    { preserveScroll: true },
-                                                );
-                                        }}
-                                    >
-                                        <Trash2 className="size-4" />
-                                    </Button>
-                                </div>
+                                                    router.delete(
+                                                        destroy(item.id),
+                                                        {
+                                                            preserveScroll: true,
+                                                        },
+                                                    );
+                                            }}
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </Button>
+                                    </div>
+                                )}
                             </td>
                         </tr>
                     ))}
@@ -656,7 +696,13 @@ export default function Budget(props: BudgetProps) {
     } | null>(null);
     const [historyId, setHistoryId] = useState<number | null>(null);
     const history = items.find((item) => item.id === historyId);
-    const edit = (item: BudgetItem) => setEditing({ item, kind: item.kind });
+    const edit = (item: BudgetItem) => {
+        if (item.source === 'mortgage') {
+            router.visit(mortgage());
+            return;
+        }
+        setEditing({ item, kind: item.kind });
+    };
     const add = (kind: Kind) => setEditing({ kind });
     const categories = props.categories;
     const balance = planBalance(items, totals);
@@ -834,7 +880,7 @@ export default function Budget(props: BudgetProps) {
                                         value: balance.rows[1].equivalents[
                                             period
                                         ],
-                                        route: bills(),
+                                        route: mortgage(),
                                     },
                                     {
                                         name: 'Known bills',
@@ -1244,7 +1290,16 @@ export default function Budget(props: BudgetProps) {
                     item={editing.item}
                     kind={editing.kind}
                     accounts={props.accounts}
-                    categories={categories}
+                    categories={
+                        editing.kind === 'bill' &&
+                        items.some((item) => item.source === 'mortgage')
+                            ? categories.filter(
+                                  (category) =>
+                                      category.trim().toLowerCase() !==
+                                      'mortgage',
+                              )
+                            : categories
+                    }
                     today={today}
                     financialYear={props.financialYear}
                     taxBrackets={props.taxBrackets}

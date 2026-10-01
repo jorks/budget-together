@@ -2,6 +2,7 @@ import type { BudgetItem, BudgetProps, Equivalents } from '@/types/budget';
 
 export type CalculatedRow = {
     direction: 'income' | 'expense';
+    source?: 'mortgage';
     label: string;
     description: string;
     equivalents: Equivalents;
@@ -25,12 +26,15 @@ export function planBalance(
     items: BudgetItem[],
     totals: BudgetProps['totals'],
 ): PlanBalance {
+    const hasManagedMortgage = items.some((item) => item.source === 'mortgage');
     const mortgageAnnual = items.reduce(
         (sum, item) =>
             sum +
             (item.is_active &&
             item.kind === 'bill' &&
-            item.category?.trim().toLowerCase() === 'mortgage'
+            (hasManagedMortgage
+                ? item.source === 'mortgage'
+                : item.category?.trim().toLowerCase() === 'mortgage')
                 ? item.equivalents.annually
                 : 0),
         0,
@@ -47,7 +51,10 @@ export function planBalance(
             {
                 direction: 'expense',
                 label: 'Mortgage',
-                description: 'Calculated from mortgage bills',
+                source: 'mortgage',
+                description: items.some((item) => item.source === 'mortgage')
+                    ? 'Calculated from Mortgage, including extra repayments'
+                    : 'Calculated from mortgage bills',
                 equivalents: equivalents(mortgageAnnual),
             },
             {

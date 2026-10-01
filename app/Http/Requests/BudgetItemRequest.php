@@ -25,6 +25,9 @@ class BudgetItemRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
+            if ($this->input('kind') === 'bill' && mb_strtolower(trim((string) $this->input('category'))) === 'mortgage' && $this->user()?->households()->first()?->mortgage()->exists()) {
+                $validator->errors()->add('category', 'Manage mortgage repayments from the Mortgage section.');
+            }
             if ($this->boolean('use_tax_estimate') && $validator->errors()->isEmpty()) {
                 $gross = (int) $this->input('gross_annual_cents') + ($this->boolean('include_bonus') ? (int) $this->input('bonus_annual_cents') : 0);
                 if ((int) $this->input('salary_sacrifice_cents') + (int) $this->input('workplace_giving_cents') + (int) $this->input('other_deductions_cents') > $gross) {

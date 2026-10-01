@@ -497,6 +497,12 @@ export function Accounts({
                                         <span className="text-xs text-muted-foreground">
                                             {item.kind} ·{' '}
                                             {item.category || 'Uncategorised'}
+                                            {item.source === 'mortgage' && (
+                                                <span className="block text-xs text-muted-foreground">
+                                                    Calculated · manage in
+                                                    Mortgage
+                                                </span>
+                                            )}
                                             {item.saving_account_id ===
                                                 selected.id &&
                                                 ' · Save-ahead account'}

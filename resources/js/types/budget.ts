@@ -26,6 +26,7 @@ export type Payment = {
     notes: string | null;
 };
 export type BudgetItem = {
+    source?: 'mortgage' | null;
     id: number;
     name: string;
     kind: Kind;
@@ -84,6 +85,7 @@ export type TaxBracket = {
     rate: number;
 };
 export type BillEvent = {
+    source?: 'mortgage' | null;
     category: string | null;
     kind: 'income' | 'bill';
     cadence: string;

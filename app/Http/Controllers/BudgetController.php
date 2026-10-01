@@ -7,6 +7,7 @@ use App\Models\BudgetItem;
 use App\Models\Household;
 use App\Services\AustralianTaxEstimator;
 use App\Services\BudgetCalculator;
+use App\Services\HouseholdBudget;
 use App\Services\HouseholdResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -16,18 +17,18 @@ use Inertia\Response;
 
 class BudgetController extends Controller
 {
-    public function index(Request $request, HouseholdResolver $households, BudgetCalculator $calculator, AustralianTaxEstimator $tax): Response
+    public function index(Request $request, HouseholdResolver $households, BudgetCalculator $calculator, AustralianTaxEstimator $tax, HouseholdBudget $budget): Response
     {
         $household = $households->forUser($request->user());
         Gate::authorize('manage', $household);
         $request->validate(['month' => ['nullable', 'date_format:Y-m', 'after_or_equal:2000-01', 'before_or_equal:2100-12']]);
         $today = CarbonImmutable::today('Australia/Melbourne');
         $month = CarbonImmutable::parse($request->input('month', $today->format('Y-m')).'-01', 'Australia/Melbourne');
-        $items = $household->items()->with(['account', 'payments' => fn ($query) => $query->orderByDesc('paid_on')->orderByDesc('id')])->orderBy('name')->orderBy('id')->get();
+        $items = $budget->items($household);
         $events = [];
         foreach ($items->whereIn('kind', ['bill', 'income']) as $item) {
             foreach ($calculator->occurrences($item, $month, $month->endOfMonth()) as $date) {
-                $events[] = ['id' => $item->id, 'name' => $item->name, 'category' => $item->category, 'date' => $date, 'kind' => $item->kind, 'cadence' => $item->cadence, 'amount_cents' => $item->kind === 'income' ? (int) round($calculator->annual($item) / Cadence::from($item->cadence)->periods($item->payments_per_year)) : $item->amount_cents, 'is_variable' => $item->is_variable, 'account' => $item->account?->name];
+                $events[] = ['id' => $item->id, 'name' => $item->name, 'category' => $item->category, 'date' => $date, 'kind' => $item->kind, 'cadence' => $item->cadence, 'amount_cents' => $item->kind === 'income' ? (int) round($calculator->annual($item) / Cadence::from($item->cadence)->periods($item->payments_per_year)) : $item->amount_cents, 'is_variable' => $item->is_variable, 'account' => $item->account?->name, 'source' => $item->source];
             }
         }
         usort($events, fn (array $a, array $b): int => [$a['date'], $a['name']] <=> [$b['date'], $b['name']]);

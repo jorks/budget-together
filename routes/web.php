@@ -8,6 +8,7 @@ use App\Http\Controllers\BudgetItemController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\HouseholdController;
 use App\Http\Controllers\HouseholdInvitationController;
+use App\Http\Controllers\MortgageController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
@@ -19,6 +20,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('plan', [BudgetController::class, 'index'])->name('plan');
     Route::get('calendar', [BudgetController::class, 'index'])->name('calendar');
     Route::get('funds', [BudgetController::class, 'index'])->name('funds');
+    Route::get('mortgage', [MortgageController::class, 'index'])->name('mortgage.index');
+    Route::put('mortgage', [MortgageController::class, 'update'])->name('mortgage.update');
     Route::get('accounts', [BudgetController::class, 'index'])->name('accounts');
     Route::put('household', [HouseholdController::class, 'update'])->name('household.update');
     Route::put('household/members/{member}', [HouseholdController::class, 'member'])->name('household.member');

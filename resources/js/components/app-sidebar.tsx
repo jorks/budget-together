@@ -31,12 +31,14 @@ import {
     accounts,
     household,
 } from '@/routes';
+import { index as mortgage } from '@/routes/mortgage';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
     { title: 'Overview', href: dashboard(), icon: House },
     { title: 'Income', href: income(), icon: Banknote },
     { title: 'Bills & expenses', href: bills(), icon: Receipt },
+    { title: 'Mortgage', href: mortgage(), icon: House },
     { title: 'Spending plan', href: plan(), icon: ListChecks },
     { title: 'Money calendar', href: calendar(), icon: CalendarDays },
     { title: 'Save ahead', href: funds(), icon: Sprout },
