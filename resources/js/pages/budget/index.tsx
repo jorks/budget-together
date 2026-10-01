@@ -84,6 +84,7 @@ export function ItemTable({
     period: Period | null;
 }) {
     const columns: Period[] = ['annually', 'monthly', 'fortnightly', 'weekly'];
+    const showPreTaxIncome = items.some((item) => item.kind === 'income');
     return (
         <div className="overflow-x-auto rounded-xl border bg-card">
             <table className="w-full min-w-200 text-left text-sm">
@@ -92,6 +93,11 @@ export function ItemTable({
                         <th className="px-4 py-3 font-medium">
                             Item / category
                         </th>
+                        {showPreTaxIncome && (
+                            <th className="px-4 py-3 text-right font-medium">
+                                Annual pre-tax income
+                            </th>
+                        )}
                         {columns.map((column) => (
                             <th
                                 key={column}
@@ -102,6 +108,11 @@ export function ItemTable({
                                 )}
                             >
                                 Per {periodLabels[column]}
+                                {showPreTaxIncome && (
+                                    <span className="mt-1 block text-xs font-normal">
+                                        After tax
+                                    </span>
+                                )}
                                 {period === column && (
                                     <span className="sr-only">
                                         {' '}
@@ -159,21 +170,6 @@ export function ItemTable({
                                         <Badge variant="outline">Paused</Badge>
                                     )}
                                 </div>
-                                {item.kind === 'income' &&
-                                    (item.gross_annual_cents ||
-                                        (item.category?.trim().toLowerCase() ===
-                                            'bonus' &&
-                                            item.bonus_annual_cents)) && (
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            Before tax:{' '}
-                                            {money(
-                                                item.gross_annual_cents ??
-                                                    item.bonus_annual_cents ??
-                                                    0,
-                                            )}{' '}
-                                            per year
-                                        </p>
-                                    )}
                                 {(item.kind === 'income'
                                     ? item.pay_date
                                     : item.due_date) && (
@@ -189,6 +185,19 @@ export function ItemTable({
                                     </p>
                                 )}
                             </td>
+                            {showPreTaxIncome && (
+                                <td className="w-40 px-4 py-4 text-right whitespace-nowrap tabular-nums">
+                                    {item.gross_annual_cents != null ? (
+                                        money(item.gross_annual_cents)
+                                    ) : item.category?.trim().toLowerCase() ===
+                                          'bonus' &&
+                                      item.bonus_annual_cents != null ? (
+                                        money(item.bonus_annual_cents)
+                                    ) : (
+                                        <span aria-label="Not provided">—</span>
+                                    )}
+                                </td>
+                            )}
                             {columns.map((column) => (
                                 <td
                                     key={column}
@@ -441,7 +450,7 @@ export default function Budget(props: BudgetProps) {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <h2 className="text-sm font-medium">
                             {view === 'income'
-                                ? 'Your take-home pay · after tax'
+                                ? 'Your annual pre-tax income and take-home pay'
                                 : view === 'bills'
                                   ? 'Your bills at a glance'
                                   : 'The household picture'}
@@ -845,7 +854,7 @@ export default function Budget(props: BudgetProps) {
                             Annualised using 52 weeks, 26 fortnights or 12
                             months.{' '}
                             {view === 'income'
-                                ? 'All income figures are after tax. '
+                                ? 'Annual pre-tax income is shown first; all other income figures are after tax. '
                                 : ''}
                             Paused items are excluded from totals.
                         </p>

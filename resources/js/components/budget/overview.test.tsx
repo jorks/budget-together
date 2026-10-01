@@ -61,7 +61,7 @@ it.each([
     expect(header).toBeDefined();
     expect(html).not.toContain('Set preferred frequency');
     if (view === 'income') {
-        expect(html).toContain('Your take-home pay · after tax');
+        expect(html).toContain('Your annual pre-tax income and take-home pay');
         expect(html).not.toContain('Search budget items');
         expect(html).not.toContain('Filter category');
         expect(html).not.toContain('Group budget items');
@@ -144,6 +144,6 @@ it('lists bonuses below salaries and marks an excluded bonus', () => {
     expect(html.indexOf('Sasha salary')).toBeLessThan(
         html.indexOf('James bonus'),
     );
-    expect(html).toContain('Before tax: $110,000.00 per year');
+    expect(html).toContain('$110,000.00');
     expect(html).toContain('Excluded from budget');
 });

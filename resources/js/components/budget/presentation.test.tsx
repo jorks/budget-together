@@ -124,8 +124,13 @@ it('shows a bonus’s before-tax amount alongside its after-tax budget figures',
         />,
     );
 
-    expect(html).toContain('Before tax: $10,000.00 per year');
-    expect(html).toContain('$6,100.00');
+    expect(html).toContain('$10,000.00');
+    expect(html.indexOf('$10,000.00')).toBeLessThan(html.indexOf('$6,100.00'));
+    expect(html.indexOf('Annual pre-tax income')).toBeLessThan(
+        html.indexOf('Per year'),
+    );
+    expect(html).toContain('After tax');
+    expect(html).not.toContain('Before tax:');
     expect(html).toContain('Bonus');
     expect(html).toContain('Excluded from budget');
 });
@@ -147,7 +152,7 @@ it('shows the salary before-tax amount without adding an excluded salary bonus',
         />,
     );
 
-    expect(html).toContain('Before tax: $155,000.00 per year');
+    expect(html).toContain('$155,000.00');
     expect(html).not.toContain('Excluded from budget');
 });
 
@@ -177,4 +182,43 @@ it('labels a combined take-home estimate when its bonus is excluded from the bud
     expect(html).toContain('Including bonus');
     expect(html).toContain('Bonus excluded from budget');
     expect(html).not.toContain('Used in budget');
+});
+
+it.each([null, 0])(
+    'shows missing or zero annual pre-tax income accurately (%s)',
+    (gross) => {
+        const html = renderToStaticMarkup(
+            <ItemTable
+                items={[
+                    {
+                        ...salary,
+                        gross_annual_cents: gross,
+                        bonus_annual_cents: 1000000,
+                    },
+                ]}
+                period="weekly"
+                onEdit={() => {}}
+                onHistory={() => {}}
+            />,
+        );
+
+        expect(html).toContain(gross === null ? 'Not provided' : '$0.00');
+        expect(html).not.toContain('$10,000.00');
+        expect(html).toContain('$250.00');
+    },
+);
+
+it('keeps expense tables without income columns or tax labels', () => {
+    const html = renderToStaticMarkup(
+        <ItemTable
+            items={[{ ...salary, kind: 'bill' }]}
+            period="weekly"
+            onEdit={() => {}}
+            onHistory={() => {}}
+        />,
+    );
+
+    expect(html).not.toContain('Annual pre-tax income');
+    expect(html).not.toContain('After tax');
+    expect(html).toContain('$250.00');
 });
