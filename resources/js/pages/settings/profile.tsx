@@ -85,6 +85,42 @@ export default function Profile({
                                 />
                             </div>
 
+                            <div className="grid gap-2">
+                                <Label htmlFor="preferred_frequency">
+                                    Preferred budget frequency
+                                </Label>
+                                <select
+                                    id="preferred_frequency"
+                                    name="preferred_frequency"
+                                    defaultValue={
+                                        auth.user.preferred_frequency ?? ''
+                                    }
+                                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                                    aria-describedby="frequency-description"
+                                >
+                                    <option value="">No preference</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="fortnightly">
+                                        Fortnightly
+                                    </option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="annually">Yearly</option>
+                                </select>
+                                <p
+                                    id="frequency-description"
+                                    className="text-sm text-muted-foreground"
+                                >
+                                    All four periods stay visible. Your
+                                    preferred column is highlighted, and summary
+                                    cards use that period. With no preference,
+                                    columns have equal emphasis and cards use
+                                    yearly figures.
+                                </p>
+                                <InputError
+                                    message={errors.preferred_frequency}
+                                />
+                            </div>
+
                             {mustVerifyEmail &&
                                 auth.user.email_verified_at === null && (
                                     <div>
