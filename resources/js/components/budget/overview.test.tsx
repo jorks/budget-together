@@ -32,12 +32,12 @@ function budgetProps(view: string): BudgetProps {
         today: '2026-10-01',
         month: '2026-10',
         totals: {
-            income: amounts,
-            bill: amounts,
-            spending: amounts,
-            saving: amounts,
-            outgoings: amounts,
-            remaining: amounts,
+            income: { ...amounts },
+            bill: { ...amounts },
+            spending: { ...amounts },
+            saving: { ...amounts },
+            outgoings: { ...amounts },
+            remaining: { ...amounts },
         },
     };
 }
@@ -235,3 +235,131 @@ it.each(['bills', 'plan'])(
         expect(html).toContain('Total');
     },
 );
+
+it.each([
+    ['weekly', ['$100.00', '$100.00', '$50.00', '$25.00']],
+    ['fortnightly', ['$200.00', '$200.00', '$100.00', '$50.00']],
+    ['monthly', ['$433.33', '$433.33', '$216.67', '$108.33']],
+    ['annually', ['$5,200.00', '$5,200.00', '$2,600.00', '$1,300.00']],
+] as const)(
+    'separates mortgage from other known bills in the overview per %s',
+    (period, expected) => {
+        vi.mocked(useBudgetPeriod).mockReturnValue({
+            preferredPeriod: period,
+            period,
+        });
+        const props = budgetProps('overview');
+        props.totals.income = {
+            annually: 2080000,
+            monthly: 173333,
+            fortnightly: 80000,
+            weekly: 40000,
+        };
+        props.totals.bill = {
+            annually: 1040000,
+            monthly: 86667,
+            fortnightly: 40000,
+            weekly: 20000,
+        };
+        props.totals.spending = {
+            annually: 260000,
+            monthly: 21667,
+            fortnightly: 10000,
+            weekly: 5000,
+        };
+        props.totals.saving = {
+            annually: 130000,
+            monthly: 10833,
+            fortnightly: 5000,
+            weekly: 2500,
+        };
+        const mortgage = {
+            id: 1,
+            kind: 'bill',
+            is_active: true,
+            category: ' Mortgage ',
+            has_sinking_fund: false,
+            equivalents: {
+                annually: 520000,
+                monthly: 43333,
+                fortnightly: 20000,
+                weekly: 10000,
+            },
+        } as BudgetItem;
+        props.items = [mortgage, { ...mortgage, id: 2, is_active: false }];
+
+        const html = renderToStaticMarkup(<Budget {...props} />);
+        const breakdown = html
+            .split('Where the plan goes')[1]
+            .split('</section>')[0];
+
+        expect(breakdown.indexOf('Mortgage')).toBeLessThan(
+            breakdown.indexOf('Known bills'),
+        );
+        expect(breakdown.match(/\$[\d,]+\.\d{2}/g)).toEqual([...expected]);
+        expect(breakdown).toContain(
+            `Per ${{ weekly: 'week', fortnightly: 'fortnight', monthly: 'month', annually: 'year' }[period]}`,
+        );
+        expect(breakdown).toContain('full bar = 100% of take-home income');
+        expect(breakdown.match(/aria-valuetext="([^"]+)"/g)).toEqual([
+            'aria-valuetext="25.0% of take-home income"',
+            'aria-valuetext="25.0% of take-home income"',
+            'aria-valuetext="12.5% of take-home income"',
+            period === 'monthly'
+                ? 'aria-valuetext="6.2% of take-home income"'
+                : 'aria-valuetext="6.3% of take-home income"',
+        ]);
+    },
+);
+
+it('keeps all known bills in their row when the household has no mortgage', () => {
+    vi.mocked(useBudgetPeriod).mockReturnValue({
+        preferredPeriod: 'annually',
+        period: 'annually',
+    });
+    const props = budgetProps('overview');
+    props.totals.income = {
+        annually: 2080000,
+        monthly: 173333,
+        fortnightly: 80000,
+        weekly: 40000,
+    };
+    props.totals.bill = {
+        annually: 120000,
+        monthly: 10000,
+        fortnightly: 4615,
+        weekly: 2308,
+    };
+
+    const html = renderToStaticMarkup(<Budget {...props} />);
+    const breakdown = html
+        .split('Where the plan goes')[1]
+        .split('</section>')[0];
+
+    expect(breakdown.match(/\$[\d,]+\.\d{2}/g)).toEqual([
+        '$0.00',
+        '$1,200.00',
+        '$0.00',
+        '$0.00',
+    ]);
+});
+
+it('shows no income comparison instead of misleading percentages when take-home income is missing', () => {
+    vi.mocked(useBudgetPeriod).mockReturnValue({
+        preferredPeriod: 'annually',
+        period: 'annually',
+    });
+    const props = budgetProps('overview');
+    props.totals.bill.annually = 120000;
+
+    const html = renderToStaticMarkup(<Budget {...props} />);
+    const breakdown = html
+        .split('Where the plan goes')[1]
+        .split('</section>')[0];
+
+    expect(breakdown).toContain('add take-home income to compare shares');
+    expect(
+        breakdown.match(/aria-valuetext="No take-home income set"/g),
+    ).toHaveLength(4);
+    expect(breakdown.match(/style="width:0%"/g)).toHaveLength(4);
+});

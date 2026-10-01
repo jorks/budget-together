@@ -659,6 +659,7 @@ export default function Budget(props: BudgetProps) {
     const edit = (item: BudgetItem) => setEditing({ item, kind: item.kind });
     const add = (kind: Kind) => setEditing({ kind });
     const categories = props.categories;
+    const balance = planBalance(items, totals);
     const fundsList = items.filter(
         (item) => item.is_active && item.has_sinking_fund,
     );
@@ -809,9 +810,17 @@ export default function Budget(props: BudgetProps) {
                         <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
                             <Panel>
                                 <div className="mb-5 flex items-center justify-between">
-                                    <h2 className="font-semibold">
-                                        Where the plan goes
-                                    </h2>
+                                    <div>
+                                        <h2 className="font-semibold">
+                                            Where the plan goes
+                                        </h2>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Per {periodLabels[period]} ·{' '}
+                                            {totals.income[period] > 0
+                                                ? 'full bar = 100% of take-home income'
+                                                : 'add take-home income to compare shares'}
+                                        </p>
+                                    </div>
                                     <Button variant="ghost" size="sm" asChild>
                                         <Link href={plan()}>
                                             View plan{' '}
@@ -821,8 +830,17 @@ export default function Budget(props: BudgetProps) {
                                 </div>
                                 {[
                                     {
+                                        name: 'Mortgage',
+                                        value: balance.rows[1].equivalents[
+                                            period
+                                        ],
+                                        route: bills(),
+                                    },
+                                    {
                                         name: 'Known bills',
-                                        value: totals.bill[period],
+                                        value: balance.rows[2].equivalents[
+                                            period
+                                        ],
                                         route: bills(),
                                     },
                                     {
@@ -835,29 +853,56 @@ export default function Budget(props: BudgetProps) {
                                         value: totals.saving[period],
                                         route: plan(),
                                     },
-                                ].map(({ name, value, route }) => (
-                                    <div className="mb-5" key={name}>
-                                        <div className="mb-2 flex justify-between gap-3 text-sm">
-                                            <Link
-                                                className="hover:underline"
-                                                href={route}
-                                            >
-                                                {name}
-                                            </Link>
-                                            <span className="font-medium tabular-nums">
-                                                {money(Number(value))}
-                                            </span>
-                                        </div>
-                                        <div className="h-2 rounded-full bg-muted">
+                                ].map(({ name, value, route }) => {
+                                    const share =
+                                        totals.income[period] > 0
+                                            ? (value / totals.income[period]) *
+                                              100
+                                            : null;
+                                    return (
+                                        <div className="mb-5" key={name}>
+                                            <div className="mb-2 flex justify-between gap-3 text-sm">
+                                                <Link
+                                                    className="hover:underline"
+                                                    href={route}
+                                                >
+                                                    {name}
+                                                </Link>
+                                                <span className="font-medium tabular-nums">
+                                                    {money(value)}
+                                                    {share !== null && (
+                                                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                                            {share.toFixed(1)}%
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            </div>
                                             <div
-                                                className="h-2 rounded-full bg-primary"
-                                                style={{
-                                                    width: `${Math.min(100, (Number(value) / Math.max(1, totals.income[period])) * 100)}%`,
-                                                }}
-                                            />
+                                                className="h-2 rounded-full bg-muted"
+                                                role="meter"
+                                                aria-label={`${name} share of take-home income`}
+                                                aria-valuemin={0}
+                                                aria-valuemax={100}
+                                                aria-valuenow={Math.min(
+                                                    100,
+                                                    share ?? 0,
+                                                )}
+                                                aria-valuetext={
+                                                    share === null
+                                                        ? 'No take-home income set'
+                                                        : `${share.toFixed(1)}% of take-home income`
+                                                }
+                                            >
+                                                <div
+                                                    className="h-2 rounded-full bg-primary"
+                                                    style={{
+                                                        width: `${Math.min(100, share ?? 0)}%`,
+                                                    }}
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                                 <p className="border-t pt-4 text-xs leading-relaxed text-muted-foreground">
                                     Amounts are annualised averages. Bill
                                     funding is already part of your bills, so it
@@ -1070,11 +1115,7 @@ export default function Budget(props: BudgetProps) {
                                 onEdit={edit}
                                 onHistory={(item) => setHistoryId(item.id)}
                                 period={preferredPeriod}
-                                balance={
-                                    view === 'plan'
-                                        ? planBalance(items, totals)
-                                        : undefined
-                                }
+                                balance={view === 'plan' ? balance : undefined}
                             />
                         ) : (
                             <Empty
