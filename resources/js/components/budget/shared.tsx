@@ -1,8 +1,60 @@
 import { useId } from 'react';
 import type { ReactNode } from 'react';
+import {
+    Baby,
+    BriefcaseBusiness,
+    Car,
+    HeartPulse,
+    House,
+    PawPrint,
+    PiggyBank,
+    ShieldCheck,
+    ShoppingBasket,
+    Tag,
+    Tv,
+    UserRound,
+    Wrench,
+    Zap,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+
+const categoryIcons: Record<string, LucideIcon> = {
+    transport: Car,
+    daycare: Baby,
+    childcare: Baby,
+    family: Baby,
+    utilities: Zap,
+    subscriptions: Tv,
+    insurance: ShieldCheck,
+    mortgage: House,
+    'health & fitness': HeartPulse,
+    personal: UserRound,
+    everyday: ShoppingBasket,
+    savings: PiggyBank,
+    salary: BriefcaseBusiness,
+    pets: PawPrint,
+    'home maintenance': Wrench,
+};
+
+export function CategoryIcon({
+    category,
+    className,
+}: {
+    category: string | null;
+    className?: string;
+}) {
+    const Icon = categoryIcons[category?.trim().toLowerCase() ?? ''] ?? Tag;
+
+    return (
+        <Icon
+            aria-hidden="true"
+            className={cn('size-4 shrink-0 text-primary', className)}
+        />
+    );
+}
 
 export const money = (cents: number) =>
     new Intl.NumberFormat('en-AU', {

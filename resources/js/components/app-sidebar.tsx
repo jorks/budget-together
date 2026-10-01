@@ -38,7 +38,7 @@ const mainNavItems: NavItem[] = [
     { title: 'Income', href: income(), icon: Banknote },
     { title: 'Bills & expenses', href: bills(), icon: Receipt },
     { title: 'Spending plan', href: plan(), icon: ListChecks },
-    { title: 'Bill calendar', href: calendar(), icon: CalendarDays },
+    { title: 'Money calendar', href: calendar(), icon: CalendarDays },
     { title: 'Save ahead', href: funds(), icon: Sprout },
     { title: 'Accounts & banks', href: accounts(), icon: Landmark },
     { title: 'Household', href: household(), icon: Users },

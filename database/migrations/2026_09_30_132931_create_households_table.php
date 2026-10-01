@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('households', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->json('categories')->nullable();
             $table->timestamps();
         });
         Schema::create('household_user', function (Blueprint $table) {
@@ -52,6 +53,10 @@ return new class extends Migration
             $table->boolean('is_variable')->default(false);
             $table->boolean('is_active')->default(true);
             $table->date('due_date')->nullable();
+            $table->date('pay_date')->nullable();
+            $table->unsignedBigInteger('salary_sacrifice_cents')->default(0);
+            $table->unsignedBigInteger('workplace_giving_cents')->default(0);
+            $table->unsignedBigInteger('other_deductions_cents')->default(0);
             $table->unsignedBigInteger('gross_annual_cents')->nullable();
             $table->unsignedBigInteger('bonus_annual_cents')->nullable();
             $table->text('notes')->nullable();

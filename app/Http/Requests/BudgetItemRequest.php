@@ -7,6 +7,7 @@ use App\Models\BudgetItem;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class BudgetItemRequest extends FormRequest
 {
@@ -18,6 +19,19 @@ class BudgetItemRequest extends FormRequest
         }
 
         return $this->user() !== null;
+    }
+
+    /** @return list<\Closure> */
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            if ($this->boolean('use_tax_estimate') && $validator->errors()->isEmpty()) {
+                $gross = (int) $this->input('gross_annual_cents') + ($this->boolean('include_bonus') ? (int) $this->input('bonus_annual_cents') : 0);
+                if ((int) $this->input('salary_sacrifice_cents') + (int) $this->input('workplace_giving_cents') + (int) $this->input('other_deductions_cents') > $gross) {
+                    $validator->errors()->add('salary_sacrifice_cents', 'Annual payroll deductions cannot exceed included gross income.');
+                }
+            }
+        }];
     }
 
     /** @return array<string, mixed> */
@@ -37,6 +51,10 @@ class BudgetItemRequest extends FormRequest
             'payments_per_year' => ['exclude_unless:cadence,custom', 'required', 'integer', 'between:1,366'],
             'is_variable' => ['required', 'boolean'],
             'is_active' => ['required', 'boolean'],
+            'pay_date' => $date,
+            'salary_sacrifice_cents' => ['sometimes', 'required', 'integer', 'min:0', 'max:99999999999'],
+            'workplace_giving_cents' => ['sometimes', 'required', 'integer', 'min:0', 'max:99999999999'],
+            'other_deductions_cents' => ['sometimes', 'required', 'integer', 'min:0', 'max:99999999999'],
             'due_date' => [...$date, 'required_if:has_sinking_fund,true'],
             'account_id' => ['nullable', Rule::exists('accounts', 'id')->where('household_id', $householdId)],
             'gross_annual_cents' => [...$money, 'required_if:use_tax_estimate,true'],

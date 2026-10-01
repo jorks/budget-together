@@ -14,7 +14,7 @@ class BudgetCalculator
     public function annual(BudgetItem $item): int
     {
         if ($item->kind === 'income' && $item->use_tax_estimate) {
-            return $this->tax->estimate($item->gross_annual_cents + ($item->include_bonus ? $item->bonus_annual_cents : 0), $item->tax_year, $item->include_medicare)['net_cents'];
+            return $this->tax->estimate($item->gross_annual_cents + ($item->include_bonus ? $item->bonus_annual_cents : 0), $item->tax_year, $item->include_medicare, $item->salary_sacrifice_cents ?? 0, $item->workplace_giving_cents ?? 0, $item->other_deductions_cents ?? 0)['net_cents'];
         }
 
         return $item->amount_cents * Cadence::from($item->cadence)->periods($item->payments_per_year);
@@ -29,10 +29,11 @@ class BudgetCalculator
     /** @return list<string> */
     public function occurrences(BudgetItem $item, CarbonImmutable $from, CarbonImmutable $until): array
     {
-        if (! $item->is_active || $item->due_date === null) {
+        $scheduledDate = $item->kind === 'income' ? $item->pay_date : $item->due_date;
+        if (! $item->is_active || $scheduledDate === null) {
             return [];
         }
-        $anchor = CarbonImmutable::parse($item->due_date->toDateString(), $from->timezone);
+        $anchor = CarbonImmutable::parse($scheduledDate->toDateString(), $from->timezone);
         $cadence = Cadence::from($item->cadence);
         $dates = [];
         for ($index = 0; ; $index++) {
@@ -88,10 +89,35 @@ class BudgetCalculator
     {
         $annual = $this->annual($item);
         $tax = $item->kind === 'income' && $item->gross_annual_cents !== null
-            ? $this->tax->estimate($item->gross_annual_cents + ($item->include_bonus ? $item->bonus_annual_cents : 0), $item->tax_year, $item->include_medicare)
+            ? $this->tax->estimate($item->gross_annual_cents + ($item->include_bonus ? $item->bonus_annual_cents : 0), $item->tax_year, $item->include_medicare, $item->salary_sacrifice_cents ?? 0, $item->workplace_giving_cents ?? 0, $item->other_deductions_cents ?? 0)
             : null;
 
         return [...$item->toArray(), 'equivalents' => $this->equivalents($annual), 'tax_estimate' => $tax, 'sinking_fund' => $this->sinkingFund($item, $today)];
+    }
+
+    /**
+     * @param  Collection<int, BudgetItem>  $items
+     * @return list<array<string, mixed>>
+     */
+    public function incomeTaxEstimates(Collection $items, CarbonImmutable $today): array
+    {
+        $estimates = [];
+        foreach ($items as $item) {
+            if ($item->kind !== 'income' || ! $item->is_active || $item->gross_annual_cents === null || strtolower(trim($item->category ?? '')) === 'bonus') {
+                continue;
+            }
+            $bonuses = $items->filter(fn (BudgetItem $bonus): bool => $item->person !== null && $bonus->kind === 'income' && $bonus->is_active && strtolower(trim($bonus->category ?? '')) === 'bonus' && $bonus->person === $item->person && $bonus->tax_year === $item->tax_year);
+            $bonusCents = (int) $bonuses->sum('bonus_annual_cents');
+            $estimate = $this->present($item, $today);
+            $estimate['bonus_excluded_from_budget'] = $bonuses->contains(fn (BudgetItem $bonus): bool => ! $bonus->include_bonus && $bonus->bonus_annual_cents > 0);
+            if ($bonusCents > 0) {
+                $estimate['include_bonus'] = true;
+                $estimate['tax_estimate'] = $this->tax->estimate($item->gross_annual_cents + ($item->include_bonus ? $item->bonus_annual_cents : 0) + $bonusCents, $item->tax_year, $item->include_medicare, $item->salary_sacrifice_cents ?? 0, $item->workplace_giving_cents ?? 0, $item->other_deductions_cents ?? 0);
+            }
+            $estimates[] = $estimate;
+        }
+
+        return $estimates;
     }
 
     /**
@@ -127,7 +153,7 @@ class BudgetCalculator
     {
         $annual = ['income' => 0, 'bill' => 0, 'spending' => 0, 'saving' => 0];
         foreach ($items as $item) {
-            if ($item->is_active) {
+            if ($item->is_active && ! ($item->kind === 'income' && strtolower(trim($item->category ?? '')) === 'bonus' && ! $item->include_bonus)) {
                 $annual[$item->kind] += $this->annual($item);
             }
         }

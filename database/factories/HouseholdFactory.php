@@ -8,6 +8,12 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 /** @extends Factory<Household> */
 class HouseholdFactory extends Factory
 {
+    /** @param list<string> $categories */
+    public function withCategories(array $categories = ['Pets', 'Home maintenance']): static
+    {
+        return $this->state(fn (): array => ['categories' => $categories]);
+    }
+
     /** @return array<string, mixed> */
     public function definition(): array
     {

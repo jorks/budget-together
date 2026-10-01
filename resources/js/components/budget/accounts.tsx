@@ -6,7 +6,11 @@ import {
     Plus,
     Trash2,
     Wallet,
+    PiggyBank,
+    House,
 } from 'lucide-react';
+import { groupAccounts, linkedAccountItems } from '@/lib/budget-groups';
+import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
 import {
     cents,
@@ -223,21 +227,36 @@ export function Accounts({
     accounts,
     banks,
     items,
+    onEditItem,
 }: {
     accounts: Account[];
     banks: Bank[];
     items: BudgetItem[];
+    onEditItem: (item: BudgetItem) => void;
 }) {
     const [editing, setEditing] = useState<Account | 'new' | null>(null);
     const [bankEditing, setBankEditing] = useState<Bank | 'new' | null>(null);
     const [error, setError] = useState('');
+    const [groupBy, setGroupBy] = useState('none');
+    const [selectedId, setSelectedId] = useState<number | null>(null);
+    const selected = accounts.find((account) => account.id === selectedId);
     return (
         <div className="grid gap-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
                     Where money comes in, lives, and goes out.
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                    <select
+                        aria-label="Group accounts"
+                        className="h-9 rounded-md border bg-background px-3 text-sm"
+                        value={groupBy}
+                        onChange={(event) => setGroupBy(event.target.value)}
+                    >
+                        <option value="none">No grouping</option>
+                        <option value="bank">Group by bank</option>
+                        <option value="type">Group by account type</option>
+                    </select>
                     <Button
                         variant="outline"
                         onClick={() => setBankEditing('new')}
@@ -256,112 +275,248 @@ export function Accounts({
                     {error}
                 </p>
             )}
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {accounts.map((account) => {
-                    const linked = items.filter(
-                        (item) =>
-                            item.is_active && item.account_id === account.id,
-                    );
-                    return (
-                        <Panel key={account.id} className="flex flex-col gap-5">
-                            <div className="flex items-start justify-between">
-                                <div className="rounded-lg bg-muted p-3">
-                                    {account.type === 'credit_card' ? (
-                                        <CreditCard className="size-5" />
-                                    ) : (
-                                        <Wallet className="size-5" />
-                                    )}
-                                </div>
-                                <div className="flex">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        aria-label={`Edit ${account.name}`}
-                                        onClick={() => setEditing(account)}
-                                    >
-                                        <Pencil className="size-4" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        aria-label={`Delete ${account.name}`}
-                                        onClick={() => {
-                                            if (
-                                                window.confirm(
-                                                    `Delete ${account.name}? Linked budget items will remain, with this account unassigned.`,
-                                                )
+            {groupAccounts(accounts, groupBy).map(
+                ([group, groupedAccounts]) => (
+                    <section key={group}>
+                        {groupBy !== 'none' && (
+                            <h2 className="mb-3 flex items-center gap-2 font-semibold">
+                                <Landmark className="size-4" />
+                                {groupBy === 'type'
+                                    ? accountTypes[
+                                          group as keyof typeof accountTypes
+                                      ]
+                                    : group}{' '}
+                                <span className="text-xs text-muted-foreground">
+                                    ({groupedAccounts.length})
+                                </span>
+                            </h2>
+                        )}
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            {groupedAccounts.map((account) => {
+                                const linked = linkedAccountItems(
+                                    items,
+                                    account.id,
+                                );
+                                const AccountIcon =
+                                    account.type === 'credit_card'
+                                        ? CreditCard
+                                        : ['mortgage', 'offset'].includes(
+                                                account.type,
                                             )
-                                                router.delete(
-                                                    destroy(account.id),
-                                                    { preserveScroll: true },
-                                                );
-                                        }}
+                                          ? House
+                                          : account.type === 'savings'
+                                            ? PiggyBank
+                                            : Wallet;
+                                return (
+                                    <Panel
+                                        key={account.id}
+                                        className="flex h-full flex-col gap-5"
                                     >
-                                        <Trash2 className="size-4" />
-                                    </Button>
-                                </div>
-                            </div>
-                            <div>
-                                <p className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-                                    {account.bank?.name ?? 'No bank assigned'}
-                                </p>
-                                <h3 className="mt-1 text-lg font-semibold">
-                                    {account.name}
-                                </h3>
-                                <p className="text-xs text-muted-foreground">
-                                    {account.owner}
-                                    {account.last_four &&
-                                        ` · •••• ${account.last_four}`}{' '}
-                                    ·{' '}
-                                    {
-                                        accountTypes[
-                                            account.type as keyof typeof accountTypes
-                                        ]
-                                    }
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-2xl font-semibold tabular-nums">
-                                    {money(account.balance_cents)}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    Manual balance
-                                    {account.credit_limit_cents != null &&
-                                        ` · Limit ${money(account.credit_limit_cents)}`}
-                                </p>
-                            </div>
-                            <p className="min-h-10 text-sm text-muted-foreground">
-                                {account.purpose ||
-                                    'Add a purpose to make this account easier to plan around.'}
-                            </p>
-                            <div className="mt-auto border-t pt-4 text-xs text-muted-foreground">
-                                <p>
-                                    {linked.length} linked income / budget items
-                                </p>
-                                {linked.slice(0, 3).map((item) => (
-                                    <p
-                                        className="mt-1 flex justify-between gap-2"
-                                        key={item.id}
-                                    >
-                                        <span>{item.name}</span>
-                                        <span>
-                                            {money(
-                                                item.equivalents.fortnightly,
-                                            )}{' '}
-                                            / fn
-                                        </span>
-                                    </p>
-                                ))}
-                            </div>
-                        </Panel>
-                    );
-                })}
-            </div>
+                                        <div className="flex items-start justify-between">
+                                            <div className="rounded-lg bg-primary/5 p-3 text-primary">
+                                                <AccountIcon className="size-5" />
+                                            </div>
+                                            <div className="flex">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    aria-label={`Edit ${account.name}`}
+                                                    onClick={() =>
+                                                        setEditing(account)
+                                                    }
+                                                >
+                                                    <Pencil className="size-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    aria-label={`Delete ${account.name}`}
+                                                    onClick={() => {
+                                                        if (
+                                                            window.confirm(
+                                                                `Delete ${account.name}? Linked budget items will remain, with this account unassigned.`,
+                                                            )
+                                                        )
+                                                            router.delete(
+                                                                destroy(
+                                                                    account.id,
+                                                                ),
+                                                                {
+                                                                    preserveScroll: true,
+                                                                },
+                                                            );
+                                                    }}
+                                                >
+                                                    <Trash2 className="size-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                                {account.bank?.name ??
+                                                    'No bank assigned'}
+                                            </p>
+                                            <h3 className="mt-1 text-lg font-semibold">
+                                                <button
+                                                    className="text-left hover:underline"
+                                                    onClick={() =>
+                                                        setSelectedId(
+                                                            account.id,
+                                                        )
+                                                    }
+                                                >
+                                                    {account.name}
+                                                </button>
+                                            </h3>
+                                            <Badge
+                                                variant="outline"
+                                                className="mt-2 border-border font-normal text-muted-foreground"
+                                            >
+                                                {
+                                                    accountTypes[
+                                                        account.type as keyof typeof accountTypes
+                                                    ]
+                                                }
+                                            </Badge>
+                                            <p className="mt-2 text-xs text-muted-foreground">
+                                                {account.owner}
+                                                {account.last_four &&
+                                                    ` · •••• ${account.last_four}`}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-2xl font-semibold tabular-nums">
+                                                {money(account.balance_cents)}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Manual balance
+                                                {account.credit_limit_cents !=
+                                                    null &&
+                                                    ` · Limit ${money(account.credit_limit_cents)}`}
+                                            </p>
+                                        </div>
+                                        <p className="min-h-10 text-sm text-muted-foreground">
+                                            {account.purpose ||
+                                                'Add a purpose to make this account easier to plan around.'}
+                                        </p>
+                                        <div className="mt-auto border-t pt-4 text-xs text-muted-foreground">
+                                            <p>
+                                                {linked.length} linked{' '}
+                                                {linked.length === 1
+                                                    ? 'item'
+                                                    : 'items'}
+                                            </p>
+                                            <Button
+                                                variant="link"
+                                                className="h-auto px-0 pt-2"
+                                                onClick={() =>
+                                                    setSelectedId(account.id)
+                                                }
+                                            >
+                                                View account details
+                                            </Button>
+                                        </div>
+                                    </Panel>
+                                );
+                            })}
+                        </div>
+                    </section>
+                ),
+            )}
             {!accounts.length && (
                 <Empty title="A home for every dollar">
                     Add an everyday account, your mortgage offset, savings
                     accounts or credit cards.
                 </Empty>
+            )}
+            {selected && (
+                <Sheet
+                    open
+                    onOpenChange={(open) => {
+                        if (!open) setSelectedId(null);
+                    }}
+                >
+                    <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+                        <SheetHeader>
+                            <SheetTitle>{selected.name}</SheetTitle>
+                            <SheetDescription>
+                                {selected.bank?.name ?? 'No bank assigned'} ·{' '}
+                                {
+                                    accountTypes[
+                                        selected.type as keyof typeof accountTypes
+                                    ]
+                                }{' '}
+                                · {selected.owner || 'No owner specified'}
+                            </SheetDescription>
+                        </SheetHeader>
+                        <div className="grid gap-5 p-6">
+                            <p className="text-sm text-muted-foreground">
+                                {selected.purpose || 'No purpose recorded.'}
+                            </p>
+                            <p className="text-2xl font-semibold tabular-nums">
+                                {money(selected.balance_cents)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                Manual balance
+                                {selected.last_four &&
+                                    ` · •••• ${selected.last_four}`}
+                                {selected.credit_limit_cents != null &&
+                                    ` · Credit limit ${money(selected.credit_limit_cents)}`}
+                            </p>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setSelectedId(null);
+                                    setEditing(selected);
+                                }}
+                            >
+                                <Pencil className="size-4" />
+                                Edit account
+                            </Button>
+                            <h3 className="font-semibold">
+                                Linked income and budget items
+                            </h3>
+                            {linkedAccountItems(items, selected.id).map(
+                                (item) => (
+                                    <button
+                                        className="grid gap-1 border-t pt-3 text-left hover:underline"
+                                        key={item.id}
+                                        onClick={() => {
+                                            setSelectedId(null);
+                                            onEditItem(item);
+                                        }}
+                                    >
+                                        <span className="font-medium">
+                                            {item.name}{' '}
+                                            {!item.is_active && (
+                                                <Badge variant="outline">
+                                                    Paused
+                                                </Badge>
+                                            )}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                            {item.kind} ·{' '}
+                                            {item.category || 'Uncategorised'}
+                                            {item.saving_account_id ===
+                                                selected.id &&
+                                                ' · Save-ahead account'}
+                                        </span>
+                                        <span className="text-sm tabular-nums">
+                                            {money(item.equivalents.monthly)} /
+                                            month
+                                        </span>
+                                    </button>
+                                ),
+                            )}
+                            {!linkedAccountItems(items, selected.id).length && (
+                                <p className="text-sm text-muted-foreground">
+                                    No linked items. Choose this account when
+                                    editing an income, bill or allocation.
+                                </p>
+                            )}
+                        </div>
+                    </SheetContent>
+                </Sheet>
             )}
             <Panel>
                 <h3 className="mb-4 font-semibold">Your banks</h3>

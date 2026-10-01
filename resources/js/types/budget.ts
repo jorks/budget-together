@@ -37,6 +37,10 @@ export type BudgetItem = {
     is_active: boolean;
     is_variable: boolean;
     due_date: string | null;
+    pay_date: string | null;
+    salary_sacrifice_cents: number;
+    workplace_giving_cents: number;
+    other_deductions_cents: number;
     account_id: number | null;
     account: Account | null;
     gross_annual_cents: number | null;
@@ -56,6 +60,8 @@ export type BudgetItem = {
     payments: Payment[];
     tax_estimate: {
         gross_cents: number;
+        taxable_cents: number;
+        deductions_cents: number;
         tax_cents: number;
         medicare_cents: number;
         net_cents: number;
@@ -72,7 +78,14 @@ export type BudgetItem = {
         cadence: string;
     } | null;
 };
+export type TaxBracket = {
+    floor_cents: number;
+    ceiling_cents: number | null;
+    rate: number;
+};
 export type BillEvent = {
+    kind: 'income' | 'bill';
+    cadence: string;
     id: number;
     name: string;
     date: string;
@@ -81,6 +94,9 @@ export type BillEvent = {
     account: string | null;
 };
 export type BudgetProps = {
+    categories: string[];
+    financialYear: number;
+    taxBrackets: Record<string, TaxBracket[]>;
     categoryTotals: {
         category: string;
         count: number;
@@ -90,6 +106,9 @@ export type BudgetProps = {
     household: { id: number; name: string };
     members: { id: number; name: string; email: string }[];
     items: BudgetItem[];
+    incomeTaxEstimates: (BudgetItem & {
+        bonus_excluded_from_budget: boolean;
+    })[];
     accounts: Account[];
     banks: Bank[];
     totals: Record<Kind | 'outgoings' | 'remaining', Equivalents>;

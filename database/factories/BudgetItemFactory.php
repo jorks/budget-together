@@ -17,7 +17,17 @@ class BudgetItemFactory extends Factory
 
     public function income(): static
     {
-        return $this->state(fn (): array => ['kind' => 'income', 'name' => 'Salary', 'person' => 'James', 'category' => null, 'amount_cents' => 520000, 'cadence' => 'fortnightly', 'gross_annual_cents' => 20000000]);
+        return $this->state(fn (): array => ['kind' => 'income', 'pay_date' => '2026-10-09', 'due_date' => null, 'name' => 'Salary', 'person' => 'James', 'category' => 'Salary', 'amount_cents' => 520000, 'cadence' => 'fortnightly', 'gross_annual_cents' => 20000000]);
+    }
+
+    public function bonus(): static
+    {
+        return $this->income()->state(fn (): array => ['name' => 'James bonus', 'category' => 'Bonus', 'cadence' => 'annually', 'gross_annual_cents' => null, 'bonus_annual_cents' => 1000000, 'amount_cents' => 610000, 'notes' => 'Annual bonus of $10,000 before tax; estimated $6,100 take-home on a $155,000 salary.']);
+    }
+
+    public function salarySacrifice(): static
+    {
+        return $this->income()->state(fn (): array => ['use_tax_estimate' => true, 'salary_sacrifice_cents' => 600000, 'workplace_giving_cents' => 52000, 'other_deductions_cents' => 12000]);
     }
 
     public function variable(): static

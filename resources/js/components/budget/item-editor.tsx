@@ -1,5 +1,8 @@
 import { useForm } from '@inertiajs/react';
-import { Save } from 'lucide-react';
+import { useState } from 'react';
+import { TaxInfo } from '@/components/budget/tax-info';
+import { store as storeCategory } from '@/routes/categories';
+import { Save, Plus } from 'lucide-react';
 import {
     cadences,
     cents,
@@ -18,7 +21,7 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { store, update } from '@/routes/budget-items';
-import type { Account, BudgetItem, Kind } from '@/types/budget';
+import type { Account, BudgetItem, Kind, BudgetProps } from '@/types/budget';
 
 export function ItemEditor({
     item,
@@ -26,6 +29,8 @@ export function ItemEditor({
     accounts,
     categories,
     today,
+    financialYear,
+    taxBrackets,
     onClose,
 }: {
     item?: BudgetItem;
@@ -33,6 +38,8 @@ export function ItemEditor({
     accounts: Account[];
     categories: string[];
     today: string;
+    financialYear: number;
+    taxBrackets: BudgetProps['taxBrackets'];
     onClose: () => void;
 }) {
     const form = useForm({
@@ -46,11 +53,15 @@ export function ItemEditor({
         is_variable: item?.is_variable ?? false,
         is_active: item?.is_active ?? true,
         due_date: item?.due_date ?? '',
+        pay_date: item?.pay_date ?? '',
+        salary_sacrifice_cents: dollars(item?.salary_sacrifice_cents ?? 0),
+        workplace_giving_cents: dollars(item?.workplace_giving_cents ?? 0),
+        other_deductions_cents: dollars(item?.other_deductions_cents ?? 0),
         account_id: String(item?.account_id ?? ''),
         gross_annual_cents: dollars(item?.gross_annual_cents),
         bonus_annual_cents: dollars(item?.bonus_annual_cents),
         use_tax_estimate: item?.use_tax_estimate ?? false,
-        tax_year: String(item?.tax_year ?? 2026),
+        tax_year: String(item?.tax_year ?? financialYear),
         include_bonus: item?.include_bonus ?? false,
         include_medicare: item?.include_medicare ?? true,
         notes: item?.notes ?? '',
@@ -62,6 +73,8 @@ export function ItemEditor({
         saving_account_id: String(item?.saving_account_id ?? ''),
     });
     const { data, setData, errors } = form;
+    const categoryForm = useForm({ name: '' });
+    const [addingCategory, setAddingCategory] = useState(false);
     const names = {
         income: 'income',
         bill: 'bill',
@@ -91,6 +104,9 @@ export function ItemEditor({
             gross_annual_cents: cents(values.gross_annual_cents),
             bonus_annual_cents: cents(values.bonus_annual_cents),
             saved_cents: cents(values.saved_cents) ?? 0,
+            salary_sacrifice_cents: cents(values.salary_sacrifice_cents) ?? 0,
+            workplace_giving_cents: cents(values.workplace_giving_cents) ?? 0,
+            other_deductions_cents: cents(values.other_deductions_cents) ?? 0,
             contribution_cents: cents(values.contribution_cents),
             has_sinking_fund: values.kind === 'bill' && values.has_sinking_fund,
             use_tax_estimate:
@@ -154,7 +170,19 @@ export function ItemEditor({
                             value={data.category}
                             onChange={(v) => setData('category', v)}
                             error={errors.category}
-                            list="budget-categories"
+                            options={{
+                                '': 'Uncategorised',
+                                ...Object.fromEntries(
+                                    [
+                                        ...new Set(
+                                            [
+                                                ...categories,
+                                                data.category,
+                                            ].filter(Boolean),
+                                        ),
+                                    ].map((name) => [name, name]),
+                                ),
+                            }}
                         />
                         <Field
                             label="Person / owner"
@@ -163,11 +191,82 @@ export function ItemEditor({
                             error={errors.person}
                         />
                     </div>
-                    <datalist id="budget-categories">
-                        {categories.map((category) => (
-                            <option key={category} value={category} />
-                        ))}
-                    </datalist>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAddingCategory(!addingCategory)}
+                    >
+                        <Plus className="size-4" /> Add category
+                    </Button>
+                    {addingCategory && (
+                        <div className="grid gap-3 rounded-lg border p-4">
+                            <Field
+                                label="New category name"
+                                value={categoryForm.data.name}
+                                onChange={(name) =>
+                                    categoryForm.setData('name', name)
+                                }
+                                error={categoryForm.errors.name}
+                            />
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    disabled={
+                                        categoryForm.processing ||
+                                        !categoryForm.data.name.trim()
+                                    }
+                                    onClick={() =>
+                                        categoryForm.post(storeCategory.url(), {
+                                            preserveScroll: true,
+                                            onSuccess: () => {
+                                                setData(
+                                                    'category',
+                                                    categories.find(
+                                                        (name) =>
+                                                            name.toLowerCase() ===
+                                                            categoryForm.data.name
+                                                                .trim()
+                                                                .toLowerCase(),
+                                                    ) ??
+                                                        categoryForm.data.name.trim(),
+                                                );
+                                                categoryForm.reset();
+                                                setAddingCategory(false);
+                                            },
+                                        })
+                                    }
+                                >
+                                    Save category
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => setAddingCategory(false)}
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                    {data.kind === 'income' &&
+                        data.category.trim().toLowerCase() === 'bonus' && (
+                            <div>
+                                <Toggle
+                                    label="Include this bonus in my budget"
+                                    checked={data.include_bonus}
+                                    onChange={(v) =>
+                                        setData('include_bonus', v)
+                                    }
+                                />
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    Leave off to keep this bonus out of income
+                                    totals and money left to allocate. It will
+                                    still appear in your income list and
+                                    calendar.
+                                </p>
+                            </div>
+                        )}
                     {data.kind === 'income' && (
                         <div className="grid gap-4 rounded-xl bg-muted/50 p-4">
                             <h3 className="font-medium">
@@ -191,8 +290,41 @@ export function ItemEditor({
                                 }
                                 error={errors.bonus_annual_cents}
                             />
+                            {(
+                                [
+                                    'salary_sacrifice_cents',
+                                    'workplace_giving_cents',
+                                    'other_deductions_cents',
+                                ] as const
+                            ).map((field) => (
+                                <Field
+                                    key={field}
+                                    type="money"
+                                    label={
+                                        {
+                                            salary_sacrifice_cents:
+                                                'Annual salary sacrifice to super (AUD)',
+                                            workplace_giving_cents:
+                                                'Annual tax-deductible workplace giving (AUD)',
+                                            other_deductions_cents:
+                                                'Annual after-tax payroll deductions (AUD)',
+                                        }[field]
+                                    }
+                                    value={data[field]}
+                                    onChange={(value) => setData(field, value)}
+                                    error={errors[field]}
+                                />
+                            ))}
+                            <p className="text-xs text-muted-foreground">
+                                Super sacrifice and eligible giving reduce
+                                estimated taxable income and cash received.
+                                Other payroll deductions reduce cash only.
+                                Manual take-home pay should already include
+                                these deductions.
+                            </p>
                             <Field
                                 label="Financial year"
+                                error={errors.tax_year}
                                 value={data.tax_year}
                                 onChange={(v) => setData('tax_year', v)}
                                 options={{
@@ -201,11 +333,19 @@ export function ItemEditor({
                                     '2027': '2027–28',
                                 }}
                             />
-                            <Toggle
-                                label="Include the bonus in the estimate"
-                                checked={data.include_bonus}
-                                onChange={(v) => setData('include_bonus', v)}
+                            <TaxInfo
+                                year={Number(data.tax_year)}
+                                brackets={taxBrackets[data.tax_year] ?? []}
                             />
+                            {data.category.trim().toLowerCase() !== 'bonus' && (
+                                <Toggle
+                                    label="Include the bonus in the estimate"
+                                    checked={data.include_bonus}
+                                    onChange={(v) =>
+                                        setData('include_bonus', v)
+                                    }
+                                />
+                            )}
                             <Toggle
                                 label="Include the standard 2% Medicare levy"
                                 checked={data.include_medicare}
@@ -218,7 +358,7 @@ export function ItemEditor({
                             />
                             <p className="text-xs leading-relaxed text-muted-foreground">
                                 Full-year Australian resident estimate. Excludes
-                                offsets, deductions, HELP, Medicare levy
+                                offsets, other deductions, HELP, Medicare levy
                                 surcharge and levy reductions/exemptions. Use
                                 manual take-home pay for your actual payslip.
                                 Enter one combined taxable income per person.{' '}
@@ -248,26 +388,7 @@ export function ItemEditor({
                                     error={errors.amount_cents}
                                     required
                                 />
-                                <Field
-                                    label="Frequency"
-                                    value={data.cadence}
-                                    onChange={(v) => setData('cadence', v)}
-                                    options={cadences}
-                                    error={errors.cadence}
-                                />
                             </div>
-                            {data.cadence === 'custom' && (
-                                <Field
-                                    label="Payments per year"
-                                    type="number"
-                                    value={data.payments_per_year}
-                                    onChange={(v) =>
-                                        setData('payments_per_year', v)
-                                    }
-                                    error={errors.payments_per_year}
-                                    hint="Used for budgeting only. The calendar shows your entered date, without inventing dates for irregular instalments."
-                                />
-                            )}
                             <div className="grid grid-cols-2 gap-3 rounded-xl border p-4 text-sm">
                                 {[
                                     ['Year', annual],
@@ -286,6 +407,33 @@ export function ItemEditor({
                                 ))}
                             </div>
                         </>
+                    )}
+                    <Field
+                        label="Frequency"
+                        value={data.cadence}
+                        onChange={(v) => setData('cadence', v)}
+                        options={cadences}
+                        error={errors.cadence}
+                    />
+                    {data.cadence === 'custom' && (
+                        <Field
+                            label="Payments per year"
+                            type="number"
+                            value={data.payments_per_year}
+                            onChange={(v) => setData('payments_per_year', v)}
+                            error={errors.payments_per_year}
+                            hint="Used for budgeting only. The calendar shows your entered date, without inventing dates for irregular instalments."
+                        />
+                    )}
+                    {data.kind === 'income' && (
+                        <Field
+                            label="Known pay date"
+                            type="date"
+                            value={data.pay_date}
+                            onChange={(value) => setData('pay_date', value)}
+                            error={errors.pay_date}
+                            hint="The calendar repeats from this date using your pay frequency. For monthly pay on the 15th, choose a 15th; for fortnightly pay, choose a known payday."
+                        />
                     )}
                     {data.kind === 'bill' && (
                         <>

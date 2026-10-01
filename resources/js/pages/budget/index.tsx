@@ -11,8 +11,14 @@ import {
     Plus,
     Search,
     Trash2,
+    Repeat,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useBudgetPeriod } from '@/hooks/use-budget-period';
+import { groupBudgetItems } from '@/lib/budget-groups';
+import { Metric, periodLabels } from '@/components/budget/metric';
+import { TaxEstimateCard } from '@/components/budget/tax-estimate-card';
+import { TaxInfo } from '@/components/budget/tax-info';
 import { Accounts } from '@/components/budget/accounts';
 import { BillCalendar } from '@/components/budget/bill-calendar';
 import { Household } from '@/components/budget/household';
@@ -20,6 +26,7 @@ import { ItemEditor } from '@/components/budget/item-editor';
 import { PaymentHistory } from '@/components/budget/payment-history';
 import {
     cadences,
+    CategoryIcon,
     dateLabel,
     Empty,
     money,
@@ -31,6 +38,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { bills, calendar, funds, plan } from '@/routes';
 import { destroy } from '@/routes/budget-items';
+import { edit as editProfile } from '@/routes/profile';
 import type { BudgetItem, BudgetProps, Kind, Period } from '@/types/budget';
 
 const titles: Record<string, [string, string]> = {
@@ -50,7 +58,7 @@ const titles: Record<string, [string, string]> = {
         'Give your money a plan',
         'Make room for everyday life, personal spending and the future.',
     ],
-    calendar: ['Your bill calendar', 'See when things land, before they do.'],
+    calendar: ['Your money calendar', 'See when things land, before they do.'],
     funds: [
         'Big bills, small steps',
         'Set money aside now, ready for the day it’s needed.',
@@ -64,50 +72,47 @@ const titles: Record<string, [string, string]> = {
         'One shared view for the people planning a life together.',
     ],
 };
-const periods: Record<Period, string> = {
-    weekly: 'Weekly',
-    fortnightly: 'Fortnightly',
-    monthly: 'Monthly',
-    annually: 'Annually',
-};
-
-function ItemTable({
+export function ItemTable({
     items,
     onEdit,
     onHistory,
-    isIncome = false,
+    period,
 }: {
     items: BudgetItem[];
     onEdit: (item: BudgetItem) => void;
     onHistory: (item: BudgetItem) => void;
-    isIncome?: boolean;
+    period: Period | null;
 }) {
+    const columns: Period[] = ['annually', 'monthly', 'fortnightly', 'weekly'];
     return (
         <div className="overflow-x-auto rounded-xl border bg-card">
-            <table className="w-full min-w-225 text-left text-sm">
-                <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
+            <table className="w-full min-w-200 text-left text-sm">
+                <thead className="border-b bg-primary/5 text-xs text-muted-foreground">
                     <tr>
-                        {[
-                            'Name / category',
-                            isIncome ? 'Take-home basis' : 'Entered amount',
-                            'Per year',
-                            'Per month',
-                            'Per fortnight',
-                            'Per week',
-                            '',
-                        ].map((name, i) => (
+                        <th className="px-4 py-3 font-medium">
+                            Item / category
+                        </th>
+                        {columns.map((column) => (
                             <th
-                                key={i}
+                                key={column}
                                 className={cn(
-                                    'px-4 py-4 font-medium',
-                                    i > 1 && i < 6 && 'text-right',
+                                    'px-4 py-3 text-right font-medium',
+                                    period === column &&
+                                        'bg-primary/8 font-semibold text-primary',
                                 )}
                             >
-                                {name || (
-                                    <span className="sr-only">Actions</span>
+                                Per {periodLabels[column]}
+                                {period === column && (
+                                    <span className="sr-only">
+                                        {' '}
+                                        (preferred)
+                                    </span>
                                 )}
                             </th>
                         ))}
+                        <th className="w-28 px-2 py-3">
+                            <span className="sr-only">Actions</span>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -121,59 +126,79 @@ function ItemTable({
                         >
                             <td className="px-4 py-4">
                                 <button
-                                    className="text-left font-semibold hover:underline"
+                                    className="flex items-center gap-2 text-left font-semibold hover:underline"
                                     onClick={() => onEdit(item)}
                                 >
                                     {item.name}
                                 </button>
                                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                                    <span>
-                                        {item.person ||
-                                            item.category ||
-                                            'Uncategorised'}
+                                    <span className="inline-flex items-center gap-1.5">
+                                        <CategoryIcon
+                                            category={item.category}
+                                            className="size-3.5"
+                                        />
+                                        {item.category || 'Uncategorised'}
                                     </span>
+                                    {item.person && (
+                                        <span>· For {item.person}</span>
+                                    )}
                                     {item.is_variable && (
                                         <Badge variant="secondary">
                                             Forecast
                                         </Badge>
                                     )}
+                                    {item.kind === 'income' &&
+                                        item.category?.trim().toLowerCase() ===
+                                            'bonus' &&
+                                        !item.include_bonus && (
+                                            <Badge variant="outline">
+                                                Excluded from budget
+                                            </Badge>
+                                        )}
                                     {!item.is_active && (
                                         <Badge variant="outline">Paused</Badge>
                                     )}
                                 </div>
-                                {item.due_date && (
+                                {item.kind === 'income' &&
+                                    (item.gross_annual_cents ||
+                                        (item.category?.trim().toLowerCase() ===
+                                            'bonus' &&
+                                            item.bonus_annual_cents)) && (
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Before tax:{' '}
+                                            {money(
+                                                item.gross_annual_cents ??
+                                                    item.bonus_annual_cents ??
+                                                    0,
+                                            )}{' '}
+                                            per year
+                                        </p>
+                                    )}
+                                {(item.kind === 'income'
+                                    ? item.pay_date
+                                    : item.due_date) && (
                                     <p className="mt-1 text-xs text-muted-foreground">
-                                        Due {dateLabel(item.due_date)}
+                                        {item.kind === 'income'
+                                            ? 'Pay date'
+                                            : 'Due'}{' '}
+                                        {dateLabel(
+                                            (item.kind === 'income'
+                                                ? item.pay_date
+                                                : item.due_date)!,
+                                        )}
                                     </p>
                                 )}
                             </td>
-                            <td className="px-4 py-4">
-                                <p className="tabular-nums">
-                                    {item.use_tax_estimate
-                                        ? 'Tax estimate'
-                                        : money(item.amount_cents)}
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    {item.use_tax_estimate
-                                        ? `${item.tax_year}–${String(item.tax_year + 1).slice(-2)} · ${item.include_bonus ? 'with bonus' : 'before bonus'}`
-                                        : item.cadence === 'custom'
-                                          ? `${item.payments_per_year} times / year`
-                                          : cadences[item.cadence]}
-                                </p>
-                            </td>
-                            {(
-                                [
-                                    'annually',
-                                    'monthly',
-                                    'fortnightly',
-                                    'weekly',
-                                ] as Period[]
-                            ).map((period) => (
+                            {columns.map((column) => (
                                 <td
-                                    key={period}
-                                    className="px-4 py-4 text-right whitespace-nowrap tabular-nums"
+                                    key={column}
+                                    className={cn(
+                                        'w-36 px-4 py-4 text-right whitespace-nowrap tabular-nums',
+                                        period === column &&
+                                            'bg-primary/5 font-semibold',
+                                    )}
                                 >
-                                    {money(item.equivalents[period])}
+                                    {money(item.equivalents[column])}
                                 </td>
                             ))}
                             <td className="px-2 py-4">
@@ -335,9 +360,10 @@ function FundCards({
 }
 export default function Budget(props: BudgetProps) {
     const { view, items, totals, today } = props;
-    const [period, setPeriod] = useState<Period>('fortnightly');
+    const { preferredPeriod, period } = useBudgetPeriod();
     const [query, setQuery] = useState('');
     const [category, setCategory] = useState('all');
+    const [groupBy, setGroupBy] = useState('none');
     const [showPaused, setShowPaused] = useState(false);
     const [editing, setEditing] = useState<{
         item?: BudgetItem;
@@ -347,24 +373,7 @@ export default function Budget(props: BudgetProps) {
     const history = items.find((item) => item.id === historyId);
     const edit = (item: BudgetItem) => setEditing({ item, kind: item.kind });
     const add = (kind: Kind) => setEditing({ kind });
-    const categories = [
-        ...new Set([
-            ...items
-                .map((item) => item.category)
-                .filter((name): name is string => !!name),
-            'Mortgage',
-            'Daycare',
-            'Utilities',
-            'Subscriptions',
-            'Insurance',
-            'Transport',
-            'Health & fitness',
-            'Personal',
-            'Everyday',
-            'Savings',
-            'Uncategorised',
-        ]),
-    ].sort();
+    const categories = props.categories;
     const fundsList = items.filter(
         (item) => item.is_active && item.has_sinking_fund,
     );
@@ -376,14 +385,23 @@ export default function Budget(props: BudgetProps) {
                 ? ['spending', 'saving'].includes(item.kind)
                 : item.kind === kind) &&
             (showPaused || item.is_active) &&
-            (category === 'all' ||
+            (view === 'income' ||
+                category === 'all' ||
                 (item.category || 'Uncategorised') === category) &&
-            `${item.name} ${item.category ?? ''} ${item.person ?? ''}`
-                .toLowerCase()
-                .includes(query.toLowerCase()),
+            (view === 'income' ||
+                `${item.name} ${item.category ?? ''} ${item.person ?? ''}`
+                    .toLowerCase()
+                    .includes(query.toLowerCase())),
     );
+    if (view === 'income') {
+        visible.sort(
+            (first, second) =>
+                Number(first.category?.trim().toLowerCase() === 'bonus') -
+                Number(second.category?.trim().toLowerCase() === 'bonus'),
+        );
+    }
     const upcoming = props.events
-        .filter((event) => event.date >= today)
+        .filter((event) => event.kind === 'bill' && event.date >= today)
         .slice(0, 5);
     const [title, subtitle] = titles[view] ?? titles.overview;
     return (
@@ -408,9 +426,7 @@ export default function Budget(props: BudgetProps) {
                             {subtitle}
                         </p>
                     </div>
-                    {['overview', 'income', 'bills', 'plan', 'funds'].includes(
-                        view,
-                    ) && (
+                    {['income', 'bills', 'plan', 'funds'].includes(view) && (
                         <Button onClick={() => add(kind)}>
                             <Plus className="size-4" />
                             {view === 'income'
@@ -421,35 +437,31 @@ export default function Budget(props: BudgetProps) {
                         </Button>
                     )}
                 </header>
+                {['overview', 'income', 'bills', 'plan'].includes(view) && (
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h2 className="text-sm font-medium">
+                            {view === 'income'
+                                ? 'Your take-home pay · after tax'
+                                : view === 'bills'
+                                  ? 'Your bills at a glance'
+                                  : 'The household picture'}
+                            <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                                All periods in tables · cards and totals per{' '}
+                                {periodLabels[period]}
+                            </span>
+                        </h2>
+                        {!preferredPeriod && (
+                            <Link
+                                href={editProfile()}
+                                className="text-xs text-muted-foreground underline underline-offset-4 hover:text-primary"
+                            >
+                                Set preferred frequency
+                            </Link>
+                        )}
+                    </div>
+                )}
                 {['overview', 'plan'].includes(view) && (
                     <>
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <h2 className="text-sm font-medium">
-                                The household picture
-                            </h2>
-                            <div
-                                className="flex flex-wrap gap-1 rounded-lg bg-muted p-1"
-                                aria-label="Budget period"
-                            >
-                                {(Object.keys(periods) as Period[]).map(
-                                    (value) => (
-                                        <button
-                                            key={value}
-                                            className={cn(
-                                                'rounded-md px-3 py-1.5 text-xs transition',
-                                                period === value
-                                                    ? 'bg-background font-semibold shadow-xs'
-                                                    : 'text-muted-foreground hover:text-foreground',
-                                            )}
-                                            aria-pressed={period === value}
-                                            onClick={() => setPeriod(value)}
-                                        >
-                                            {periods[value]}
-                                        </button>
-                                    ),
-                                )}
-                            </div>
-                        </div>
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                             {[
                                 {
@@ -488,22 +500,15 @@ export default function Budget(props: BudgetProps) {
                                             'border-primary/20 bg-primary/5',
                                     )}
                                 >
-                                    <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                                        <span>{stat.label}</span>
-                                        <stat.icon className="size-4" />
-                                    </div>
-                                    <p
-                                        className={cn(
-                                            'mt-4 text-3xl font-semibold tracking-tight tabular-nums',
-                                            stat.value < 0 &&
-                                                'text-destructive',
-                                        )}
-                                    >
-                                        {money(stat.value)}
-                                    </p>
-                                    <p className="mt-2 text-xs text-muted-foreground">
-                                        {stat.caption}
-                                    </p>
+                                    <Metric
+                                        icon={
+                                            <stat.icon className="size-4.5" />
+                                        }
+                                        label={stat.label}
+                                        value={stat.value}
+                                        period={period}
+                                        caption={stat.caption}
+                                    />
                                 </Panel>
                             ))}
                         </div>
@@ -540,7 +545,7 @@ export default function Budget(props: BudgetProps) {
                                         value: totals.saving[period],
                                         route: plan(),
                                     },
-                                ].map(({ name, value, route }, index) => (
+                                ].map(({ name, value, route }) => (
                                     <div className="mb-5" key={name}>
                                         <div className="mb-2 flex justify-between gap-3 text-sm">
                                             <Link
@@ -555,14 +560,7 @@ export default function Budget(props: BudgetProps) {
                                         </div>
                                         <div className="h-2 rounded-full bg-muted">
                                             <div
-                                                className={cn(
-                                                    'h-2 rounded-full',
-                                                    [
-                                                        'bg-primary',
-                                                        'bg-sky-500',
-                                                        'bg-amber-400',
-                                                    ][index],
-                                                )}
+                                                className="h-2 rounded-full bg-primary"
                                                 style={{
                                                     width: `${Math.min(100, (Number(value) / Math.max(1, totals.income[period])) * 100)}%`,
                                                 }}
@@ -670,11 +668,9 @@ export default function Budget(props: BudgetProps) {
                     <Panel>
                         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <h2 className="font-semibold">
-                                    The yearly view
-                                </h2>
+                                <h2 className="font-semibold">By category</h2>
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                    {money(totals.bill.annually)} across all
+                                    {money(totals.bill[period])} across all
                                     active bills
                                 </p>
                             </div>
@@ -701,18 +697,18 @@ export default function Budget(props: BudgetProps) {
                                             'border-primary bg-primary/5',
                                     )}
                                 >
-                                    <p className="text-sm font-medium">
-                                        {group.category}
-                                    </p>
-                                    <p className="mt-2 text-xl font-semibold tabular-nums">
-                                        {money(group.equivalents.annually)}
-                                    </p>
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                        {group.count}{' '}
-                                        {group.count === 1 ? 'bill' : 'bills'} ·{' '}
-                                        {money(group.equivalents.fortnightly)} /
-                                        fortnight
-                                    </p>
+                                    <Metric
+                                        icon={
+                                            <CategoryIcon
+                                                category={group.category}
+                                                className="size-4.5"
+                                            />
+                                        }
+                                        label={group.category}
+                                        value={group.equivalents[period]}
+                                        period={period}
+                                        caption={`${group.count} ${group.count === 1 ? 'bill' : 'bills'}`}
+                                    />
                                 </button>
                             ))}
                         </div>
@@ -720,50 +716,118 @@ export default function Budget(props: BudgetProps) {
                 )}
                 {['income', 'bills', 'plan'].includes(view) && (
                     <>
-                        <div className="flex flex-wrap items-center gap-3">
-                            <div className="relative min-w-60 flex-1">
-                                <Search className="absolute top-3 left-3 size-4 text-muted-foreground" />
-                                <Input
-                                    aria-label="Search budget items"
-                                    className="pl-9"
-                                    value={query}
+                        {view !== 'income' && (
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="relative min-w-60 flex-1">
+                                    <Search className="absolute top-3 left-3 size-4 text-muted-foreground" />
+                                    <Input
+                                        aria-label="Search budget items"
+                                        className="pl-9"
+                                        value={query}
+                                        onChange={(event) =>
+                                            setQuery(event.target.value)
+                                        }
+                                        placeholder="Find an item…"
+                                    />
+                                </div>
+                                <select
+                                    aria-label="Filter category"
+                                    className="h-10 rounded-md border bg-background px-3 text-sm"
+                                    value={category}
                                     onChange={(event) =>
-                                        setQuery(event.target.value)
+                                        setCategory(event.target.value)
                                     }
-                                    placeholder="Find an item…"
-                                />
+                                >
+                                    <option value="all">All categories</option>
+                                    {categories.map((name) => (
+                                        <option key={name}>{name}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    aria-label="Group budget items"
+                                    className="h-10 rounded-md border bg-background px-3 text-sm"
+                                    value={groupBy}
+                                    onChange={(event) =>
+                                        setGroupBy(event.target.value)
+                                    }
+                                >
+                                    <option value="none">No grouping</option>
+                                    <option value="category">
+                                        Group by category
+                                    </option>
+                                    <option value="frequency">
+                                        Group by frequency
+                                    </option>
+                                </select>
+                                <label className="flex items-center gap-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={showPaused}
+                                        onChange={(event) =>
+                                            setShowPaused(event.target.checked)
+                                        }
+                                    />
+                                    Show paused
+                                </label>
                             </div>
-                            <select
-                                aria-label="Filter category"
-                                className="h-10 rounded-md border bg-background px-3 text-sm"
-                                value={category}
-                                onChange={(event) =>
-                                    setCategory(event.target.value)
-                                }
-                            >
-                                <option value="all">All categories</option>
-                                {categories.map((name) => (
-                                    <option key={name}>{name}</option>
-                                ))}
-                            </select>
-                            <label className="flex items-center gap-2 text-sm">
-                                <input
-                                    type="checkbox"
-                                    checked={showPaused}
-                                    onChange={(event) =>
-                                        setShowPaused(event.target.checked)
-                                    }
-                                />
-                                Show paused
-                            </label>
-                        </div>
+                        )}
                         {visible.length ? (
-                            <ItemTable
-                                items={visible}
-                                onEdit={edit}
-                                onHistory={(item) => setHistoryId(item.id)}
-                                isIncome={view === 'income'}
-                            />
+                            <div className="grid gap-5">
+                                {groupBudgetItems(
+                                    visible,
+                                    view === 'income' ? 'none' : groupBy,
+                                ).map(([name, grouped]) => (
+                                    <section key={name}>
+                                        {view !== 'income' &&
+                                            groupBy !== 'none' && (
+                                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                                    <h2 className="flex items-center gap-2 font-semibold">
+                                                        {groupBy ===
+                                                        'frequency' ? (
+                                                            <Repeat className="size-4" />
+                                                        ) : (
+                                                            <CategoryIcon
+                                                                category={name}
+                                                            />
+                                                        )}
+                                                        {groupBy === 'frequency'
+                                                            ? name.startsWith(
+                                                                  'custom:',
+                                                              )
+                                                                ? `${name.split(':')[1]} payments per year`
+                                                                : cadences[name]
+                                                            : name}{' '}
+                                                        <span className="text-xs text-muted-foreground">
+                                                            ({grouped.length})
+                                                        </span>
+                                                    </h2>
+                                                    <span className="text-sm tabular-nums">
+                                                        {money(
+                                                            grouped.reduce(
+                                                                (sum, item) =>
+                                                                    sum +
+                                                                    item
+                                                                        .equivalents[
+                                                                        period
+                                                                    ],
+                                                                0,
+                                                            ),
+                                                        )}{' '}
+                                                        / {periodLabels[period]}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        <ItemTable
+                                            items={grouped}
+                                            onEdit={edit}
+                                            onHistory={(item) =>
+                                                setHistoryId(item.id)
+                                            }
+                                            period={preferredPeriod}
+                                        />
+                                    </section>
+                                ))}
+                            </div>
                         ) : (
                             <Empty
                                 title={
@@ -779,76 +843,32 @@ export default function Budget(props: BudgetProps) {
                         )}
                         <p className="text-xs text-muted-foreground">
                             Annualised using 52 weeks, 26 fortnights or 12
-                            months. Paused items are excluded from totals.
+                            months.{' '}
+                            {view === 'income'
+                                ? 'All income figures are after tax. '
+                                : ''}
+                            Paused items are excluded from totals.
                         </p>
                         {view === 'income' && (
+                            <TaxInfo
+                                year={props.financialYear}
+                                brackets={
+                                    props.taxBrackets[props.financialYear] ?? []
+                                }
+                            />
+                        )}
+                        {view === 'income' && (
                             <div className="grid gap-4 md:grid-cols-2">
-                                {visible
-                                    .filter((item) => item.tax_estimate)
-                                    .map((item) => (
-                                        <Panel key={item.id}>
-                                            <h3 className="font-semibold">
-                                                {item.person || item.name} · tax
-                                                estimate
-                                            </h3>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {item.tax_year}–
-                                                {String(
-                                                    item.tax_year + 1,
-                                                ).slice(-2)}{' '}
-                                                ·{' '}
-                                                {item.include_bonus
-                                                    ? 'Including bonus'
-                                                    : 'Before bonus'}{' '}
-                                                ·{' '}
-                                                {item.use_tax_estimate
-                                                    ? 'Used in budget'
-                                                    : 'Budget uses manual take-home'}
-                                            </p>
-                                            <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                                                {[
-                                                    [
-                                                        'Gross income',
-                                                        item.tax_estimate!
-                                                            .gross_cents,
-                                                    ],
-                                                    [
-                                                        'Income tax',
-                                                        item.tax_estimate!
-                                                            .tax_cents,
-                                                    ],
-                                                    [
-                                                        'Standard Medicare levy',
-                                                        item.tax_estimate!
-                                                            .medicare_cents,
-                                                    ],
-                                                    [
-                                                        'Estimated take-home',
-                                                        item.tax_estimate!
-                                                            .net_cents,
-                                                    ],
-                                                ].map(([name, value]) => (
-                                                    <div key={name}>
-                                                        <dt className="text-muted-foreground">
-                                                            {name}
-                                                        </dt>
-                                                        <dd className="mt-1 font-semibold tabular-nums">
-                                                            {money(
-                                                                Number(value),
-                                                            )}
-                                                        </dd>
-                                                    </div>
-                                                ))}
-                                            </dl>
-                                            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-                                                Resident marginal tax estimate
-                                                only. Excludes offsets,
-                                                deductions, HELP, Medicare
-                                                surcharge and levy reductions.
-                                                Salary excludes employer super.
-                                            </p>
-                                        </Panel>
-                                    ))}
+                                {props.incomeTaxEstimates.map((item) => (
+                                    <TaxEstimateCard
+                                        bonusExcludedFromBudget={
+                                            item.bonus_excluded_from_budget
+                                        }
+                                        key={item.id}
+                                        item={item}
+                                        period={period}
+                                    />
+                                ))}
                             </div>
                         )}
                         {view === 'plan' && (
@@ -911,10 +931,12 @@ export default function Budget(props: BudgetProps) {
                         accounts={props.accounts}
                         banks={props.banks}
                         items={items}
+                        onEditItem={edit}
                     />
                 )}
                 {view === 'household' && (
                     <Household
+                        household={props.household}
                         members={props.members}
                         invitations={props.invitations}
                         invitation_url={props.invitation_url}
@@ -933,6 +955,8 @@ export default function Budget(props: BudgetProps) {
                     accounts={props.accounts}
                     categories={categories}
                     today={today}
+                    financialYear={props.financialYear}
+                    taxBrackets={props.taxBrackets}
                     onClose={() => setEditing(null)}
                 />
             )}

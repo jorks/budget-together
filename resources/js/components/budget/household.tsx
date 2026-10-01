@@ -1,17 +1,93 @@
-import { router, useForm } from '@inertiajs/react';
-import { Copy, Users } from 'lucide-react';
+import { Link, router, useForm } from '@inertiajs/react';
+import { Copy, Users, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { dateLabel, Field, Panel } from '@/components/budget/shared';
 import { Button } from '@/components/ui/button';
 import { store, destroy } from '@/routes/invitations';
+import { update, member as updateMember } from '@/routes/household';
+import { edit as editProfile } from '@/routes/profile';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetDescription,
+} from '@/components/ui/sheet';
 import type { BudgetProps } from '@/types/budget';
 
+function MemberEditor({
+    member,
+    onClose,
+}: {
+    member: BudgetProps['members'][number];
+    onClose: () => void;
+}) {
+    const form = useForm({ name: member.name });
+    return (
+        <Sheet
+            open
+            onOpenChange={(open) => {
+                if (
+                    !open &&
+                    (!form.isDirty ||
+                        window.confirm('Discard your unsaved changes?'))
+                )
+                    onClose();
+            }}
+        >
+            <SheetContent>
+                <SheetHeader>
+                    <SheetTitle>Edit person</SheetTitle>
+                    <SheetDescription>
+                        Update the name used in your household. Each person
+                        manages their own email and sign-in details in profile
+                        settings.
+                    </SheetDescription>
+                </SheetHeader>
+                <form
+                    className="grid gap-4 p-6"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        form.submit(updateMember(member.id), {
+                            preserveScroll: true,
+                            onSuccess: onClose,
+                        });
+                    }}
+                >
+                    <Field
+                        label="Name"
+                        value={form.data.name}
+                        onChange={(name) => form.setData('name', name)}
+                        error={form.errors.name}
+                        required
+                    />
+                    <p className="text-sm text-muted-foreground">
+                        {member.email}
+                    </p>
+                    <Button disabled={form.processing}>Save person</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>
+                        Cancel
+                    </Button>
+                </form>
+            </SheetContent>
+        </Sheet>
+    );
+}
+
 export function Household({
+    household,
     members,
     invitations,
     invitation_url,
-}: Pick<BudgetProps, 'members' | 'invitations' | 'invitation_url'>) {
+}: Pick<
+    BudgetProps,
+    'household' | 'members' | 'invitations' | 'invitation_url'
+>) {
     const form = useForm({ email: '' });
+    const householdForm = useForm({ name: household.name });
+    const [editingMember, setEditingMember] = useState<
+        BudgetProps['members'][number] | null
+    >(null);
     const [copied, setCopied] = useState(false);
     return (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -24,6 +100,30 @@ export function Household({
                     Everyone has equal access to view and edit the shared
                     budget.
                 </p>
+                <form
+                    className="mb-6 grid gap-3"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        householdForm.submit(update(), {
+                            preserveScroll: true,
+                        });
+                    }}
+                >
+                    <Field
+                        label="Household name"
+                        value={householdForm.data.name}
+                        onChange={(name) => householdForm.setData('name', name)}
+                        error={householdForm.errors.name}
+                        required
+                    />
+                    <Button
+                        disabled={
+                            householdForm.processing || !householdForm.isDirty
+                        }
+                    >
+                        Save household name
+                    </Button>
+                </form>
                 {members.map((member) => (
                     <div
                         key={member.id}
@@ -38,8 +138,26 @@ export function Household({
                                 {member.email}
                             </p>
                         </div>
+                        <Button
+                            className="ml-auto"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Edit ${member.name}`}
+                            onClick={() => setEditingMember(member)}
+                        >
+                            <Pencil className="size-4" />
+                        </Button>
                     </div>
                 ))}
+                <Button variant="outline" className="mt-4" asChild>
+                    <Link href={editProfile()}>My profile and email</Link>
+                </Button>
+                {editingMember && (
+                    <MemberEditor
+                        member={editingMember}
+                        onClose={() => setEditingMember(null)}
+                    />
+                )}
             </Panel>
             <Panel>
                 <h3 className="mb-2 font-semibold">Invite your partner</h3>

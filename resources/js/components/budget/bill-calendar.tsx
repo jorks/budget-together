@@ -1,6 +1,12 @@
 import { Link } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { dateLabel, Empty, money, Panel } from '@/components/budget/shared';
+import {
+    cadences,
+    dateLabel,
+    Empty,
+    money,
+    Panel,
+} from '@/components/budget/shared';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { calendar } from '@/routes';
@@ -36,14 +42,32 @@ export function BillCalendar({
                         })}
                     </h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        {events.length} scheduled bills ·{' '}
-                        {money(
-                            events.reduce(
-                                (sum, event) => sum + event.amount_cents,
-                                0,
-                            ),
-                        )}{' '}
-                        forecast
+                        {events.length} scheduled events ·{' '}
+                        <span className="text-foreground">
+                            Income +
+                            {money(
+                                events
+                                    .filter((event) => event.kind === 'income')
+                                    .reduce(
+                                        (sum, event) =>
+                                            sum + event.amount_cents,
+                                        0,
+                                    ),
+                            )}
+                        </span>{' '}
+                        ·{' '}
+                        <span className="text-foreground">
+                            Bills −
+                            {money(
+                                events
+                                    .filter((event) => event.kind === 'bill')
+                                    .reduce(
+                                        (sum, event) =>
+                                            sum + event.amount_cents,
+                                        0,
+                                    ),
+                            )}
+                        </span>
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -69,7 +93,7 @@ export function BillCalendar({
                 </div>
             </div>
             <div className="hidden overflow-hidden rounded-xl border bg-card md:block">
-                <div className="grid grid-cols-7 border-b bg-muted/40">
+                <div className="grid grid-cols-7 border-b bg-primary/5">
                     {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(
                         (day) => (
                             <div
@@ -119,12 +143,16 @@ export function BillCalendar({
                                                             onClick={() =>
                                                                 onEdit(event.id)
                                                             }
-                                                            className="min-w-0 rounded-md bg-primary/8 p-2 text-left text-xs transition hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-ring"
+                                                            className="min-w-0 rounded-md bg-muted/70 p-2 text-left text-xs transition hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring"
                                                         >
                                                             <span className="block truncate font-medium">
                                                                 {event.name}
                                                             </span>
                                                             <span className="text-muted-foreground">
+                                                                {event.kind ===
+                                                                'income'
+                                                                    ? 'Income +'
+                                                                    : 'Bill −'}
                                                                 {money(
                                                                     event.amount_cents,
                                                                 )}
@@ -155,10 +183,13 @@ export function BillCalendar({
                             <p className="text-sm font-medium">{event.name}</p>
                             <p className="text-xs text-muted-foreground">
                                 {dateLabel(event.date)} ·{' '}
+                                {event.kind === 'income' ? 'Income' : 'Bill'} ·{' '}
+                                {cadences[event.cadence]} ·{' '}
                                 {event.account ?? 'Account not assigned'}
                             </p>
                         </div>
                         <p className="text-sm font-semibold tabular-nums">
+                            {event.kind === 'income' ? '+' : '−'}
                             {money(event.amount_cents)}
                             {event.is_variable && (
                                 <span className="ml-1 font-normal text-muted-foreground">
@@ -170,13 +201,14 @@ export function BillCalendar({
                 ))}
                 {!events.length && (
                     <Empty title="Nothing scheduled this month">
-                        Add a due date to a bill to see it here.
+                        Add a due date to a bill or a known pay date to income
+                        to see it here.
                     </Empty>
                 )}
             </Panel>
             <p className="text-xs leading-relaxed text-muted-foreground">
                 Scheduled dates are forecasts, not payment confirmations. Weekly
-                and fortnightly bills follow real dates; calendar totals can
+                and fortnightly schedules follow real dates; calendar totals can
                 differ from annualised budget averages. Custom instalments show
                 only the entered due date.
             </p>

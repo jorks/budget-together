@@ -9,11 +9,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name'])]
+/** @property list<string>|null $categories */
+#[Fillable(['name', 'categories'])]
 class Household extends Model
 {
     /** @use HasFactory<HouseholdFactory> */
     use HasFactory;
+
+    public const DEFAULT_CATEGORIES = ['Salary', 'Bonus', 'Mortgage', 'Daycare', 'Utilities', 'Subscriptions', 'Insurance', 'Transport', 'Health & fitness', 'Personal', 'Everyday', 'Savings'];
+
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return ['categories' => 'array'];
+    }
 
     /** @return BelongsToMany<User, $this> */
     public function users(): BelongsToMany

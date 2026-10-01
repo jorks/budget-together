@@ -5,6 +5,8 @@ use App\Http\Controllers\BankController;
 use App\Http\Controllers\BillPaymentController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\BudgetItemController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\HouseholdController;
 use App\Http\Controllers\HouseholdInvitationController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,6 +20,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('calendar', [BudgetController::class, 'index'])->name('calendar');
     Route::get('funds', [BudgetController::class, 'index'])->name('funds');
     Route::get('accounts', [BudgetController::class, 'index'])->name('accounts');
+    Route::put('household', [HouseholdController::class, 'update'])->name('household.update');
+    Route::put('household/members/{member}', [HouseholdController::class, 'member'])->name('household.member');
+    Route::post('categories', [CategoryController::class, 'store'])->name('categories.store');
     Route::get('household', [BudgetController::class, 'index'])->name('household');
     Route::resource('budget-items', BudgetItemController::class)->only(['store', 'update', 'destroy']);
     Route::resource('accounts', AccountController::class)->only(['store', 'update', 'destroy']);

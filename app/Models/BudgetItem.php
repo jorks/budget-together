@@ -11,10 +11,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
+ * @property CarbonImmutable|null $pay_date
  * @property CarbonImmutable|null $due_date
  * @property CarbonImmutable|null $saving_start_date
  */
-#[Fillable(['account_id', 'kind', 'name', 'category', 'person', 'amount_cents', 'cadence', 'payments_per_year', 'is_variable', 'is_active', 'due_date', 'gross_annual_cents', 'bonus_annual_cents', 'notes', 'has_sinking_fund', 'saved_cents', 'saving_start_date', 'contribution_cents', 'contribution_cadence', 'saving_account_id', 'use_tax_estimate', 'include_bonus', 'include_medicare', 'tax_year'])]
+#[Fillable(['pay_date', 'salary_sacrifice_cents', 'workplace_giving_cents', 'other_deductions_cents', 'account_id', 'kind', 'name', 'category', 'person', 'amount_cents', 'cadence', 'payments_per_year', 'is_variable', 'is_active', 'due_date', 'gross_annual_cents', 'bonus_annual_cents', 'notes', 'has_sinking_fund', 'saved_cents', 'saving_start_date', 'contribution_cents', 'contribution_cadence', 'saving_account_id', 'use_tax_estimate', 'include_bonus', 'include_medicare', 'tax_year'])]
 class BudgetItem extends Model
 {
     /** @use HasFactory<BudgetItemFactory> */
@@ -28,6 +29,10 @@ class BudgetItem extends Model
             'include_bonus' => 'boolean',
             'include_medicare' => 'boolean',
             'tax_year' => 'integer',
+            'pay_date' => 'immutable_date:Y-m-d',
+            'salary_sacrifice_cents' => 'integer',
+            'workplace_giving_cents' => 'integer',
+            'other_deductions_cents' => 'integer',
             'amount_cents' => 'integer',
             'gross_annual_cents' => 'integer',
             'bonus_annual_cents' => 'integer',
