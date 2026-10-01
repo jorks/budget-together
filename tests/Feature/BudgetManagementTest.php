@@ -151,7 +151,8 @@ test('bill pages expose category totals and month-end calendar occurrences', fun
     $this->actingAs($household->users->first())->get(route('calendar', ['month' => '2028-02']))
         ->assertInertia(fn (Assert $page) => $page->where('categoryTotals.0.category', 'Utilities')
             ->where('categoryTotals.0.equivalents.annually', 120000)
-            ->has('events', 1)->where('events.0.date', '2028-02-29'));
+            ->has('events', 1)->where('events.0.date', '2028-02-29')
+            ->where('events.0.category', 'Utilities'));
 });
 
 test('deleting an account keeps its bills and clears both account links', function () {

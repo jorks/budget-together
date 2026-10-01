@@ -9,12 +9,12 @@ function Preference() {
     return JSON.stringify(useBudgetPeriod());
 }
 
-describe('personal budget frequency', () => {
+describe('household budget frequency', () => {
     it.each(['weekly', 'fortnightly', 'monthly', 'annually', null] as const)(
-        'uses the account preference %s for emphasis and summaries',
+        'uses the household preference %s for emphasis and summaries',
         (preferred) => {
             vi.mocked(usePage).mockReturnValue({
-                props: { auth: { user: { preferred_frequency: preferred } } },
+                props: { household: { preferred_frequency: preferred } },
             } as unknown as ReturnType<typeof usePage>);
             const html = renderToStaticMarkup(createElement(Preference));
             expect(html).toBe(

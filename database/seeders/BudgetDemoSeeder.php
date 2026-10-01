@@ -19,9 +19,9 @@ class BudgetDemoSeeder extends Seeder
             return;
         }
 
-        $james = User::query()->firstOrCreate(['email' => 'james@example.test'], ['name' => 'James (demo)', 'preferred_frequency' => 'fortnightly', 'password' => Hash::make('password'), 'email_verified_at' => now()]);
+        $james = User::query()->firstOrCreate(['email' => 'james@example.test'], ['name' => 'James (demo)', 'password' => Hash::make('password'), 'email_verified_at' => now()]);
         $sasha = User::query()->firstOrCreate(['email' => 'sasha@example.test'], ['name' => 'Sasha (demo)', 'password' => Hash::make('password'), 'email_verified_at' => now()]);
-        $household = $james->households()->first() ?? Household::query()->create(['name' => 'James & Sasha · Demo']);
+        $household = $james->households()->first() ?? Household::query()->create(['name' => 'James & Sasha · Demo', 'preferred_frequency' => 'fortnightly']);
         if ($household->categories === null) {
             $household->update(['categories' => ['Pets', 'Home maintenance']]);
         }

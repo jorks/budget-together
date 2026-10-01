@@ -27,14 +27,14 @@ class BudgetController extends Controller
         $events = [];
         foreach ($items->whereIn('kind', ['bill', 'income']) as $item) {
             foreach ($calculator->occurrences($item, $month, $month->endOfMonth()) as $date) {
-                $events[] = ['id' => $item->id, 'name' => $item->name, 'date' => $date, 'kind' => $item->kind, 'cadence' => $item->cadence, 'amount_cents' => $item->kind === 'income' ? (int) round($calculator->annual($item) / Cadence::from($item->cadence)->periods($item->payments_per_year)) : $item->amount_cents, 'is_variable' => $item->is_variable, 'account' => $item->account?->name];
+                $events[] = ['id' => $item->id, 'name' => $item->name, 'category' => $item->category, 'date' => $date, 'kind' => $item->kind, 'cadence' => $item->cadence, 'amount_cents' => $item->kind === 'income' ? (int) round($calculator->annual($item) / Cadence::from($item->cadence)->periods($item->payments_per_year)) : $item->amount_cents, 'is_variable' => $item->is_variable, 'account' => $item->account?->name];
             }
         }
         usort($events, fn (array $a, array $b): int => [$a['date'], $a['name']] <=> [$b['date'], $b['name']]);
 
         return Inertia::render('budget/index', [
             'view' => $request->route()->getName() === 'dashboard' ? 'overview' : $request->route()->getName(),
-            'household' => $household->only(['id', 'name']),
+            'household' => $household->only(['id', 'name', 'preferred_frequency']),
             'members' => $household->users()->orderBy('name')->get(['users.id', 'name', 'email']),
             'items' => $items->map(fn (BudgetItem $item): array => $calculator->present($item, $today)),
             'totals' => $calculator->totals($items),

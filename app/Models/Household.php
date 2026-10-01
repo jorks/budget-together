@@ -9,8 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** @property list<string>|null $categories */
-#[Fillable(['name', 'categories'])]
+/**
+ * @property list<string>|null $categories
+ * @property string|null $preferred_frequency
+ */
+#[Fillable(['name', 'categories', 'preferred_frequency'])]
 class Household extends Model
 {
     /** @use HasFactory<HouseholdFactory> */

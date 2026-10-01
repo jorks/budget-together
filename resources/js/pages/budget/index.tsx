@@ -41,7 +41,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { bills, calendar, funds, plan } from '@/routes';
 import { destroy } from '@/routes/budget-items';
-import { edit as editProfile } from '@/routes/profile';
+import { household } from '@/routes';
 import type {
     BudgetItem,
     BudgetProps,
@@ -742,7 +742,7 @@ export default function Budget(props: BudgetProps) {
                         </h2>
                         {!preferredPeriod && (
                             <Link
-                                href={editProfile()}
+                                href={household()}
                                 className="text-xs text-muted-foreground underline underline-offset-4 hover:text-primary"
                             >
                                 Set preferred frequency

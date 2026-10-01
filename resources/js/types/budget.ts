@@ -84,6 +84,7 @@ export type TaxBracket = {
     rate: number;
 };
 export type BillEvent = {
+    category: string | null;
     kind: 'income' | 'bill';
     cadence: string;
     id: number;
@@ -103,7 +104,7 @@ export type BudgetProps = {
         equivalents: Equivalents;
     }[];
     view: string;
-    household: { id: number; name: string };
+    household: { id: number; name: string; preferred_frequency: Period | null };
     members: { id: number; name: string; email: string }[];
     items: BudgetItem[];
     incomeTaxEstimates: (BudgetItem & {

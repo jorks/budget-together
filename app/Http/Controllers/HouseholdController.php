@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class HouseholdController extends Controller
@@ -16,8 +17,11 @@ class HouseholdController extends Controller
     {
         $household = $households->forUser($request->user());
         Gate::authorize('manage', $household);
-        $household->update($request->validate(['name' => ['required', 'string', 'max:120']]));
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Household renamed.']);
+        $household->update($request->validate([
+            'name' => ['sometimes', 'required', 'string', 'max:120'],
+            'preferred_frequency' => ['sometimes', 'nullable', Rule::in(['weekly', 'fortnightly', 'monthly', 'annually'])],
+        ]));
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Household settings saved.']);
 
         return back();
     }

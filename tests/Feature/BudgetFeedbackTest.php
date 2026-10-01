@@ -68,6 +68,7 @@ test('income saves deductions and schedules estimated take home on fortnightly p
 
     $this->get(route('calendar', ['month' => '2026-10']))->assertInertia(fn (Assert $page) => $page
         ->has('events', 2)->where('events.0.kind', 'income')->where('events.0.date', '2026-10-09')
+        ->where('events.0.category', null)->where('events.1.category', null)
         ->where('events.1.date', '2026-10-23')->where('events.0.amount_cents', 275077)
         ->where('items.0.tax_estimate.taxable_cents', 9300000)->where('totals.income.annually', 7152000));
     $this->put(route('budget-items.update', $item), feedbackIncome(['use_tax_estimate' => false, 'cadence' => 'monthly', 'pay_date' => '2026-10-15']))->assertRedirect();
@@ -121,4 +122,53 @@ test('guests cannot rename people households or add categories', function () {
     $this->put(route('household.update'), ['name' => 'Changed'])->assertRedirect(route('login'));
     $this->put(route('household.member', $member), ['name' => 'Changed'])->assertRedirect(route('login'));
     $this->post(route('categories.store'), ['name' => 'Pets'])->assertRedirect(route('login'));
+});
+
+test('household members share the saved frequency on every budget page', function (?string $frequency) {
+    $household = Household::factory()->fortnightly()->hasAttached(User::factory()->count(2))->create();
+    $otherHousehold = Household::factory()->fortnightly()->hasAttached(User::factory())->create();
+
+    $this->actingAs($household->users->first())->put(route('household.update'), [
+        'preferred_frequency' => $frequency, 'household_id' => $otherHousehold->id,
+    ])->assertSessionHasNoErrors()->assertRedirect();
+
+    expect($household->fresh()->preferred_frequency)->toBe($frequency);
+    expect($otherHousehold->fresh()->preferred_frequency)->toBe('fortnightly');
+    foreach ($household->users as $member) {
+        foreach (['dashboard', 'income', 'bills', 'plan', 'calendar', 'funds', 'accounts', 'household'] as $pageRoute) {
+            $this->actingAs($member)->get(route($pageRoute))->assertInertia(fn (Assert $page) => $page
+                ->where('household.preferred_frequency', $frequency));
+        }
+    }
+})->with(['weekly', 'fortnightly', 'monthly', 'annually', null]);
+
+test('invalid household frequencies cannot overwrite a saved preference', function (mixed $frequency) {
+    $household = Household::factory()->fortnightly()->hasAttached(User::factory())->create();
+
+    $this->actingAs($household->users->first())->put(route('household.update'), [
+        'preferred_frequency' => $frequency,
+    ])->assertSessionHasErrors('preferred_frequency');
+
+    expect($household->fresh()->preferred_frequency)->toBe('fortnightly');
+})->with(['all', 'quarterly', [['monthly']]]);
+
+test('renaming the household preserves its frequency and changing frequency preserves its name', function () {
+    $household = Household::factory()->fortnightly()->hasAttached(User::factory())->create();
+
+    $this->actingAs($household->users->first())->put(route('household.update'), ['name' => 'Our family'])
+        ->assertSessionHasNoErrors();
+
+    expect($household->fresh()->preferred_frequency)->toBe('fortnightly');
+    $this->put(route('household.update'), ['preferred_frequency' => 'monthly'])->assertSessionHasNoErrors();
+    expect($household->fresh()->name)->toBe('Our family');
+});
+
+test('guests and unverified users cannot change household frequency', function () {
+    $this->put(route('household.update'), ['preferred_frequency' => 'weekly'])->assertRedirect(route('login'));
+    $household = Household::factory()->fortnightly()->hasAttached(User::factory()->unverified())->create();
+
+    $this->actingAs($household->users->first())->put(route('household.update'), ['preferred_frequency' => 'weekly'])
+        ->assertRedirect(route('verification.notice'));
+
+    expect($household->fresh()->preferred_frequency)->toBe('fortnightly');
 });

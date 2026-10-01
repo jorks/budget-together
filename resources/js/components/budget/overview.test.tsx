@@ -16,7 +16,7 @@ function budgetProps(view: string): BudgetProps {
     const amounts = { weekly: 0, fortnightly: 0, monthly: 0, annually: 0 };
     return {
         view,
-        household: { id: 1, name: 'James & Sasha' },
+        household: { id: 1, name: 'James & Sasha', preferred_frequency: null },
         items: [],
         incomeTaxEstimates: [],
         categories: [],

@@ -14,9 +14,14 @@ class HouseholdFactory extends Factory
         return $this->state(fn (): array => ['categories' => $categories]);
     }
 
+    public function fortnightly(): static
+    {
+        return $this->state(fn (): array => ['preferred_frequency' => 'fortnightly']);
+    }
+
     /** @return array<string, mixed> */
     public function definition(): array
     {
-        return ['name' => fake()->lastName().' household'];
+        return ['name' => fake()->lastName().' household', 'preferred_frequency' => null];
     }
 }

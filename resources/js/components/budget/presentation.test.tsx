@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ItemTable, ItemTables } from '../../pages/budget/index';
 import { planBalance } from '../../lib/plan-balance';
 import type { BudgetItem, BudgetProps, Period } from '../../types/budget';
+import { BillCalendar } from './bill-calendar';
 import { TaxEstimateCard } from './tax-estimate-card';
 
 const salary = {
@@ -528,3 +529,36 @@ it('totals annual pre-tax and take-home income while excluding paused items and 
         '$500.00',
     ]);
 });
+
+it.each([
+    ['bill', 'annually', 'Insurance', 2],
+    ['bill', 'monthly', 'Insurance', 0],
+    ['income', 'annually', 'Salary', 0],
+    ['bill', 'annually', 'Mortgage', 0],
+] as const)(
+    'identifies annual bills in the calendar and list (%s, %s, %s)',
+    (kind, cadence, category, labelCount) => {
+        const html = renderToStaticMarkup(
+            <BillCalendar
+                month="2026-10"
+                today="2026-10-01"
+                onEdit={() => {}}
+                events={[
+                    {
+                        id: 1,
+                        name: 'Scheduled payment',
+                        category,
+                        kind,
+                        cadence,
+                        date: '2026-10-03',
+                        amount_cents: 150000,
+                        is_variable: false,
+                        account: null,
+                    },
+                ]}
+            />,
+        );
+
+        expect(html.match(/Annual bill/g) ?? []).toHaveLength(labelCount);
+    },
+);

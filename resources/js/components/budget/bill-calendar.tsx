@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
     cadences,
+    CategoryIcon,
     dateLabel,
     Empty,
     money,
@@ -11,6 +12,21 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { calendar } from '@/routes';
 import type { BillEvent } from '@/types/budget';
+
+function isMortgageBill(event: BillEvent): boolean {
+    return (
+        event.kind === 'bill' &&
+        event.category?.trim().toLowerCase() === 'mortgage'
+    );
+}
+
+function isAnnualBill(event: BillEvent): boolean {
+    return (
+        event.kind === 'bill' &&
+        event.cadence === 'annually' &&
+        !isMortgageBill(event)
+    );
+}
 
 export function BillCalendar({
     month,
@@ -43,7 +59,7 @@ export function BillCalendar({
                     </h2>
                     <p className="mt-1 text-sm text-muted-foreground">
                         {events.length} scheduled events ·{' '}
-                        <span className="text-foreground">
+                        <span className="text-primary">
                             Income +
                             {money(
                                 events
@@ -143,19 +159,86 @@ export function BillCalendar({
                                                             onClick={() =>
                                                                 onEdit(event.id)
                                                             }
-                                                            className="min-w-0 rounded-md bg-muted/70 p-2 text-left text-xs transition hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring"
+                                                            className={cn(
+                                                                'min-w-0 rounded-md p-2 text-left text-xs transition focus-visible:ring-2 focus-visible:ring-ring',
+                                                                event.kind ===
+                                                                    'income'
+                                                                    ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                                                                    : isMortgageBill(
+                                                                            event,
+                                                                        )
+                                                                      ? 'bg-red-900/5 ring-1 ring-red-900/15 ring-inset hover:bg-red-900/10 dark:bg-red-300/10 dark:ring-red-300/20 dark:hover:bg-red-300/15'
+                                                                      : isAnnualBill(
+                                                                              event,
+                                                                          )
+                                                                        ? 'bg-blue-900/5 ring-1 ring-blue-900/15 ring-inset hover:bg-blue-900/10 dark:bg-blue-300/10 dark:ring-blue-300/20 dark:hover:bg-blue-300/15'
+                                                                        : 'bg-muted/70 hover:bg-primary/10',
+                                                            )}
                                                         >
-                                                            <span className="block truncate font-medium">
-                                                                {event.name}
+                                                            <span className="flex items-center gap-1.5">
+                                                                <CategoryIcon
+                                                                    category={
+                                                                        event.category
+                                                                    }
+                                                                    className={cn(
+                                                                        'size-3.5',
+                                                                        isAnnualBill(
+                                                                            event,
+                                                                        )
+                                                                            ? 'text-blue-900/65 dark:text-blue-300/70'
+                                                                            : event.kind ===
+                                                                                  'bill' &&
+                                                                                  'text-red-900/65 dark:text-red-300/70',
+                                                                    )}
+                                                                />
+                                                                <span
+                                                                    className={
+                                                                        isMortgageBill(
+                                                                            event,
+                                                                        ) ||
+                                                                        isAnnualBill(
+                                                                            event,
+                                                                        )
+                                                                            ? 'font-semibold'
+                                                                            : 'truncate font-medium'
+                                                                    }
+                                                                >
+                                                                    {event.name}
+                                                                </span>
                                                             </span>
-                                                            <span className="text-muted-foreground">
+                                                            <span
+                                                                className={cn(
+                                                                    'mt-1 block',
+                                                                    event.kind ===
+                                                                        'income'
+                                                                        ? 'text-primary/80'
+                                                                        : 'text-muted-foreground',
+                                                                )}
+                                                            >
                                                                 {event.kind ===
                                                                 'income'
-                                                                    ? 'Income +'
-                                                                    : 'Bill −'}
-                                                                {money(
-                                                                    event.amount_cents,
-                                                                )}
+                                                                    ? 'Income '
+                                                                    : isAnnualBill(
+                                                                            event,
+                                                                        )
+                                                                      ? 'Annual bill '
+                                                                      : 'Bill '}
+                                                                <span
+                                                                    className={
+                                                                        event.kind ===
+                                                                        'bill'
+                                                                            ? 'text-muted-foreground'
+                                                                            : undefined
+                                                                    }
+                                                                >
+                                                                    {event.kind ===
+                                                                    'income'
+                                                                        ? '+'
+                                                                        : '−'}
+                                                                    {money(
+                                                                        event.amount_cents,
+                                                                    )}
+                                                                </span>
                                                                 {event.is_variable
                                                                     ? ' est.'
                                                                     : ''}
@@ -177,18 +260,61 @@ export function BillCalendar({
                     <button
                         key={`${event.id}-${event.date}`}
                         onClick={() => onEdit(event.id)}
-                        className="flex w-full items-center justify-between gap-4 border-t py-4 text-left hover:bg-muted/30"
+                        className={cn(
+                            'flex w-full items-center justify-between gap-4 border-t py-4 text-left',
+                            event.kind === 'income'
+                                ? 'rounded-md bg-primary/10 px-3 hover:bg-primary/20'
+                                : isMortgageBill(event)
+                                  ? 'rounded-md bg-red-900/5 px-3 hover:bg-red-900/10 dark:bg-red-300/10 dark:hover:bg-red-300/15'
+                                  : isAnnualBill(event)
+                                    ? 'rounded-md bg-blue-900/5 px-3 hover:bg-blue-900/10 dark:bg-blue-300/10 dark:hover:bg-blue-300/15'
+                                    : 'hover:bg-muted/30',
+                        )}
                     >
-                        <div>
-                            <p className="text-sm font-medium">{event.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                                {dateLabel(event.date)} ·{' '}
-                                {event.kind === 'income' ? 'Income' : 'Bill'} ·{' '}
-                                {cadences[event.cadence]} ·{' '}
-                                {event.account ?? 'Account not assigned'}
-                            </p>
+                        <div className="flex min-w-0 items-center gap-3">
+                            <CategoryIcon
+                                category={event.category}
+                                className={
+                                    isAnnualBill(event)
+                                        ? 'text-blue-900/65 dark:text-blue-300/70'
+                                        : event.kind === 'bill'
+                                          ? 'text-red-900/65 dark:text-red-300/70'
+                                          : undefined
+                                }
+                            />
+                            <div className="min-w-0">
+                                <p
+                                    className={cn(
+                                        'text-sm font-medium',
+                                        (isMortgageBill(event) ||
+                                            isAnnualBill(event)) &&
+                                            'font-semibold',
+                                        event.kind === 'income' &&
+                                            'text-primary',
+                                    )}
+                                >
+                                    {event.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    {dateLabel(event.date)} ·{' '}
+                                    {event.kind === 'income'
+                                        ? 'Income'
+                                        : isAnnualBill(event)
+                                          ? 'Annual bill'
+                                          : 'Bill'}{' '}
+                                    · {cadences[event.cadence]} ·{' '}
+                                    {event.account ?? 'Account not assigned'}
+                                </p>
+                            </div>
                         </div>
-                        <p className="text-sm font-semibold tabular-nums">
+                        <p
+                            className={cn(
+                                'shrink-0 text-sm font-semibold tabular-nums',
+                                event.kind === 'income'
+                                    ? 'text-primary'
+                                    : 'text-muted-foreground',
+                            )}
+                        >
                             {event.kind === 'income' ? '+' : '−'}
                             {money(event.amount_cents)}
                             {event.is_variable && (

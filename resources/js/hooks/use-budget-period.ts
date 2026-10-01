@@ -1,9 +1,10 @@
 import { usePage } from '@inertiajs/react';
-import type { Auth } from '@/types';
+import type { BudgetProps } from '@/types/budget';
 
 export function useBudgetPeriod() {
-    const { auth } = usePage<{ auth: Auth }>().props;
-    const preferredPeriod = auth.user.preferred_frequency ?? null;
+    const { household } = usePage<{ household: BudgetProps['household'] }>()
+        .props;
+    const preferredPeriod = household.preferred_frequency ?? null;
 
     return { preferredPeriod, period: preferredPeriod ?? 'annually' };
 }
