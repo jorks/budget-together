@@ -36,6 +36,11 @@ class UserFactory extends Factory
         ];
     }
 
+    public function retirementPlanning(): static
+    {
+        return $this->state(fn (): array => ['date_of_birth' => '1990-04-15', 'retirement_age' => 65]);
+    }
+
     /**
      * Indicate that the model's email address should be unverified.
      */

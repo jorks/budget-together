@@ -117,3 +117,31 @@ it('orders categories by active annual total with alphabetical ties', () => {
     expect(groups[0][1].map((item) => item.id)).toEqual([1, 3]);
     expect(items.map((item) => item.id)).toEqual([1, 2, 3, 4, 5, 6]);
 });
+
+it.each(['none', 'category', 'frequency'])(
+    'pins externally calculated repayments before editable bills with %s grouping',
+    (by) => {
+        const childcare = item(1, { category: 'Daycare' });
+        const car = item(2, { source: 'debt', category: 'Debts & financing' });
+        const mortgage = item(3, { source: 'mortgage', category: 'Mortgage' });
+        const card = item(4, { source: 'debt', category: 'Debts & financing' });
+        const manualDebt = item(5, { category: 'Debts & financing' });
+        const input = [childcare, car, mortgage, card, manualDebt];
+        const groups = groupBudgetItems(input, by, true);
+        expect(
+            groups.flatMap(([, items]) => items).map((item) => item.id),
+        ).toEqual([3, 2, 4, 1, 5]);
+        expect(input.map((item) => item.id)).toEqual([1, 2, 3, 4, 5]);
+        if (by !== 'none') expect(groups[0][0]).toBe('Calculated repayments');
+    },
+);
+
+it('keeps normal grouping when no external repayments are visible', () => {
+    const items = [
+        item(1, { category: 'Utilities' }),
+        item(2, { category: 'Daycare' }),
+    ];
+    expect(groupBudgetItems(items, 'category', true)).toEqual(
+        groupBudgetItems(items, 'category'),
+    );
+});

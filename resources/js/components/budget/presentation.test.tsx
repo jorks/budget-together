@@ -656,3 +656,40 @@ it('separates debt repayments from other bills without changing the spending pla
     expect(result.rows[3].source).toBe('debt');
     expect(result.remaining).toEqual(balanceTotals.remaining);
 });
+
+it('renders calculated repayments first with a visible heading when grouping by frequency', () => {
+    const items = [
+        { ...salary, id: 2, name: 'Childcare', kind: 'bill' as const },
+        {
+            ...salary,
+            id: 3,
+            name: 'Car repayment',
+            kind: 'bill' as const,
+            source: 'debt' as const,
+        },
+        {
+            ...salary,
+            id: 4,
+            name: 'Mortgage repayment',
+            kind: 'bill' as const,
+            source: 'mortgage' as const,
+        },
+    ];
+    const html = renderToStaticMarkup(
+        <ItemTables
+            items={items}
+            groupBy="frequency"
+            repaymentsFirst
+            onEdit={() => {}}
+            onHistory={() => {}}
+            period="monthly"
+        />,
+    );
+    expect(html).toContain('Calculated repayments');
+    expect(html.indexOf('Mortgage repayment')).toBeLessThan(
+        html.indexOf('Car repayment'),
+    );
+    expect(html.indexOf('Car repayment')).toBeLessThan(
+        html.indexOf('Childcare'),
+    );
+});

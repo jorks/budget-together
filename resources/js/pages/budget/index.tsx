@@ -39,7 +39,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { bills, calendar, funds, plan } from '@/routes';
+import { bills, calendar, funds, plan, outlook } from '@/routes';
 import { destroy } from '@/routes/budget-items';
 import { index as debts } from '@/routes/debts';
 import { index as mortgage } from '@/routes/mortgage';
@@ -55,7 +55,7 @@ import type {
 const titles: Record<string, [string, string]> = {
     overview: [
         'A little clarity. A lot more breathing room.',
-        'Your household, planned together.',
+        'Your everyday budget, from this month to the year ahead.',
     ],
     income: [
         'Money coming in',
@@ -294,23 +294,16 @@ export function ItemTable({
                                         {item.name}
                                     </button>
                                 )}
-                                {(item.source === 'mortgage' ||
-                                    item.source === 'debt') && (
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                        From{' '}
-                                        {item.source === 'debt'
-                                            ? 'Debts & financing'
-                                            : 'Mortgage'}{' '}
-                                        · includes extra repayments
-                                    </p>
-                                )}
                                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                                     <span className="inline-flex items-center gap-1.5">
                                         <CategoryIcon
                                             category={item.category}
                                             className="size-3.5"
                                         />
-                                        {item.category || 'Uncategorised'}
+                                        {item.source === 'mortgage' ||
+                                        item.source === 'debt'
+                                            ? `From ${item.source === 'debt' ? 'Debts & financing' : 'Mortgage'} · includes extra repayments`
+                                            : item.category || 'Uncategorised'}
                                     </span>
                                     {item.person && (
                                         <span>· For {item.person}</span>
@@ -520,6 +513,7 @@ export function ItemTable({
     );
 }
 export function ItemTables({
+    repaymentsFirst = false,
     items,
     groupBy,
     onEdit,
@@ -528,13 +522,14 @@ export function ItemTables({
     balance,
 }: {
     balance?: PlanBalance;
+    repaymentsFirst?: boolean;
     items: BudgetItem[];
     groupBy: string;
     onEdit: (item: BudgetItem) => void;
     onHistory: (item: BudgetItem) => void;
     period: Period | null;
 }) {
-    const groups = groupBudgetItems(items, groupBy);
+    const groups = groupBudgetItems(items, groupBy, repaymentsFirst);
     if (balance && groups.length === 0) {
         groups.push(['', []]);
     }
@@ -549,11 +544,13 @@ export function ItemTables({
                             ) : (
                                 <CategoryIcon category={name} />
                             )}
-                            {groupBy === 'frequency'
-                                ? name.startsWith('custom:')
-                                    ? `${name.split(':')[1]} payments per year`
-                                    : cadences[name]
-                                : name}
+                            {repaymentsFirst && name === 'Calculated repayments'
+                                ? name
+                                : groupBy === 'frequency'
+                                  ? name.startsWith('custom:')
+                                      ? `${name.split(':')[1]} payments per year`
+                                      : cadences[name]
+                                  : name}
                             <span className="text-xs text-muted-foreground">
                                 ({grouped.length})
                             </span>
@@ -788,6 +785,14 @@ export default function Budget(props: BudgetProps) {
                             {subtitle}
                         </p>
                     </div>
+                    {view === 'overview' && (
+                        <Button variant="outline" asChild>
+                            <Link href={outlook()}>
+                                Long-term outlook{' '}
+                                <ArrowUpRight className="size-4" />
+                            </Link>
+                        </Button>
+                    )}
                     {['income', 'bills', 'plan', 'funds'].includes(view) && (
                         <Button onClick={() => add(kind)}>
                             <Plus className="size-4" />
@@ -1205,6 +1210,7 @@ export default function Budget(props: BudgetProps) {
                         {visible.length || view === 'plan' ? (
                             <ItemTables
                                 items={visible}
+                                repaymentsFirst={view === 'bills'}
                                 groupBy={view === 'income' ? 'none' : groupBy}
                                 onEdit={edit}
                                 onHistory={(item) => setHistoryId(item.id)}

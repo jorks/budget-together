@@ -33,9 +33,14 @@ class HouseholdController extends Controller
         $household = $households->forUser($request->user());
         Gate::authorize('manage', $household);
         abort_unless($household->users()->whereKey($member->id)->exists(), 404);
-        $data = $request->validate(['name' => ['required', 'string', 'max:80']]);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:80'],
+            'date_of_birth' => ['sometimes', 'nullable', 'date_format:Y-m-d', 'after_or_equal:1900-01-01', 'before_or_equal:'.now('Australia/Melbourne')->toDateString()],
+            'retirement_age' => ['sometimes', 'required', 'integer', 'between:18,100'],
+        ]);
         DB::transaction(function () use ($household, $member, $data): void {
             $household->items()->where('person', $member->name)->update(['person' => $data['name']]);
+            $household->superFunds()->where('person', $member->name)->update(['person' => $data['name']]);
             $household->accounts()->where('owner', $member->name)->update(['owner' => $data['name']]);
             $member->update($data);
         });

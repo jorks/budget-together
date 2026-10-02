@@ -23,7 +23,11 @@ function MemberEditor({
     member: BudgetProps['members'][number];
     onClose: () => void;
 }) {
-    const form = useForm({ name: member.name });
+    const form = useForm({
+        name: member.name,
+        date_of_birth: member.date_of_birth ?? '',
+        retirement_age: String(member.retirement_age ?? 65),
+    });
     return (
         <Sheet
             open
@@ -49,6 +53,10 @@ function MemberEditor({
                     className="grid gap-4 p-6"
                     onSubmit={(event) => {
                         event.preventDefault();
+                        form.transform((data) => ({
+                            ...data,
+                            date_of_birth: data.date_of_birth || null,
+                        }));
                         form.submit(updateMember(member.id), {
                             preserveScroll: true,
                             onSuccess: onClose,
@@ -61,6 +69,27 @@ function MemberEditor({
                         onChange={(name) => form.setData('name', name)}
                         error={form.errors.name}
                         required
+                    />
+                    <Field
+                        label="Date of birth"
+                        type="date"
+                        value={form.data.date_of_birth}
+                        onChange={(value) =>
+                            form.setData('date_of_birth', value)
+                        }
+                        error={form.errors.date_of_birth}
+                        hint="Optional. Used to calculate age and the retirement timeline for mortgage and super."
+                    />
+                    <Field
+                        label="Retirement age"
+                        type="number"
+                        value={form.data.retirement_age}
+                        onChange={(value) =>
+                            form.setData('retirement_age', value)
+                        }
+                        error={form.errors.retirement_age}
+                        required
+                        hint="Defaults to 65. Choose your own planning age between 18 and 100."
                     />
                     <p className="text-sm text-muted-foreground">
                         {member.email}
@@ -147,6 +176,12 @@ export function Household({
                                 <p className="font-medium">{member.name}</p>
                                 <p className="text-sm text-muted-foreground">
                                     {member.email}
+                                </p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    {member.date_of_birth
+                                        ? `Born ${dateLabel(member.date_of_birth)} · `
+                                        : 'Date of birth not entered · '}
+                                    Retirement age {member.retirement_age ?? 65}
                                 </p>
                             </div>
                             <Button

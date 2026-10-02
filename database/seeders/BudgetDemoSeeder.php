@@ -19,8 +19,8 @@ class BudgetDemoSeeder extends Seeder
             return;
         }
 
-        $james = User::query()->firstOrCreate(['email' => 'james@example.test'], ['name' => 'James (demo)', 'password' => Hash::make('password'), 'email_verified_at' => now()]);
-        $sasha = User::query()->firstOrCreate(['email' => 'sasha@example.test'], ['name' => 'Sasha (demo)', 'password' => Hash::make('password'), 'email_verified_at' => now()]);
+        $james = User::query()->firstOrCreate(['email' => 'james@example.test'], ['name' => 'James (demo)', 'date_of_birth' => '1988-04-15', 'retirement_age' => 65, 'password' => Hash::make('password'), 'email_verified_at' => now()]);
+        $sasha = User::query()->firstOrCreate(['email' => 'sasha@example.test'], ['name' => 'Sasha (demo)', 'date_of_birth' => '1991-08-20', 'retirement_age' => 65, 'password' => Hash::make('password'), 'email_verified_at' => now()]);
         $household = $james->households()->first() ?? Household::query()->create(['name' => 'James & Sasha · Demo', 'preferred_frequency' => 'fortnightly', 'debts_enabled' => true]);
         if ($household->categories === null) {
             $household->update(['categories' => ['Pets', 'Home maintenance']]);
@@ -83,6 +83,7 @@ class BudgetDemoSeeder extends Seeder
         $this->item($household, 'Weekly family spending', ['kind' => 'spending', 'category' => 'Everyday', 'amount_cents' => 60000, 'cadence' => 'weekly', 'account_id' => $everyday->id]);
         $this->item($household, 'James personal', ['kind' => 'spending', 'category' => 'Personal', 'person' => 'James', 'amount_cents' => 25000, 'cadence' => 'monthly', 'account_id' => $everyday->id]);
         $this->item($household, 'Sasha personal', ['kind' => 'spending', 'category' => 'Personal', 'person' => 'Sasha', 'amount_cents' => 25000, 'cadence' => 'monthly', 'account_id' => $everyday->id]);
+        $this->call(SuperDemoSeeder::class);
         $this->item($household, 'Emergency & future fund', ['kind' => 'saving', 'category' => 'Savings', 'amount_cents' => 150000, 'cadence' => 'monthly', 'account_id' => $savings->id]);
     }
 

@@ -37,6 +37,12 @@ class Household extends Model
         return $this->belongsToMany(User::class);
     }
 
+    /** @return HasMany<SuperFund, $this> */
+    public function superFunds(): HasMany
+    {
+        return $this->hasMany(SuperFund::class);
+    }
+
     /** @return HasMany<Debt, $this> */
     public function debts(): HasMany
     {

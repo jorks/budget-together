@@ -27,6 +27,7 @@ it('shows an empty planner until loan details are entered', () => {
 
 it('loads saved dollar amounts and shows accessible comparisons and yearly values', () => {
     const html = renderToStaticMarkup(<MortgagePage mortgage={mortgage} />);
+    expect(html).not.toContain('Super and mortgage at retirement');
     expect(html).toContain('value="650000.00"');
     expect(html).toContain('value="20000.00"');
     expect(html).toContain('value="300.00"');

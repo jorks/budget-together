@@ -113,7 +113,13 @@ export type BudgetProps = {
         mortgage_enabled: boolean;
         debts_enabled: boolean;
     };
-    members: { id: number; name: string; email: string }[];
+    members: {
+        id: number;
+        name: string;
+        email: string;
+        date_of_birth?: string | null;
+        retirement_age?: number;
+    }[];
     items: BudgetItem[];
     incomeTaxEstimates: (BudgetItem & {
         bonus_excluded_from_budget: boolean;

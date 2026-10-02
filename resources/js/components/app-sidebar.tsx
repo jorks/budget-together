@@ -8,6 +8,7 @@ import {
     Receipt,
     Sprout,
     Users,
+    TrendingUp,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
@@ -23,6 +24,7 @@ import {
 } from '@/components/ui/sidebar';
 import {
     dashboard,
+    outlook,
     income,
     bills,
     plan,
@@ -33,14 +35,17 @@ import {
 } from '@/routes';
 import { index as mortgage } from '@/routes/mortgage';
 import { index as debts } from '@/routes/debts';
+import { index as superannuation } from '@/routes/superannuation';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
-    { title: 'Overview', href: dashboard(), icon: House },
+    { title: 'Budget overview', href: dashboard(), icon: House },
+    { title: 'Long-term outlook', href: outlook(), icon: TrendingUp },
     { title: 'Income', href: income(), icon: Banknote },
     { title: 'Bills & expenses', href: bills(), icon: Receipt },
     { title: 'Mortgage', href: mortgage(), icon: House },
     { title: 'Debts & financing', href: debts(), icon: Landmark },
+    { title: 'Superannuation', href: superannuation(), icon: Sprout },
     { title: 'Spending plan', href: plan(), icon: ListChecks },
     { title: 'Money calendar', href: calendar(), icon: CalendarDays },
     { title: 'Save ahead', href: funds(), icon: Sprout },
