@@ -6,10 +6,13 @@ use App\Models\SuperFund;
 
 class SuperCalculator
 {
+    public function __construct(private FinancialHistory $history) {}
+
     /** @return array{employer_cents: int, sacrifice_cents: int, tax_cents: int, net_cents: int} */
     public function contributions(SuperFund $fund): array
     {
-        $income = $fund->income;
+        $fund = $this->history->at($fund);
+        $income = $fund->income === null ? null : $this->history->at($fund->income);
         $active = $income !== null && $income->is_active && $income->kind === 'income' && $income->gross_annual_cents !== null && mb_strtolower(trim($income->category ?? '')) !== 'bonus';
         $employer = $active ? (int) round($income->gross_annual_cents * $fund->employer_rate / 100) : 0;
         $sacrifice = $income === null ? $fund->salary_sacrifice_cents : ($active ? ($income->salary_sacrifice_cents ?? 0) : 0);
@@ -24,6 +27,7 @@ class SuperCalculator
         if ($years < 0 || $years > 100) {
             throw new \InvalidArgumentException('Projection horizon must be between zero and 100 years.');
         }
+        $fund = $this->history->at($fund);
         $net = $this->contributions($fund)['net_cents'];
         $balance = (float) $balanceCents;
         $paidIn = $balance;

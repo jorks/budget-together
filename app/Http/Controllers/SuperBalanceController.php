@@ -26,7 +26,7 @@ class SuperBalanceController extends Controller
         });
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Super balance recorded.']);
 
-        return to_route('superannuation.index');
+        return back();
     }
 
     public function destroy(Request $request, SuperFund $superFund, SuperBalance $superBalance, HouseholdResolver $households): RedirectResponse
@@ -43,6 +43,6 @@ class SuperBalanceController extends Controller
         });
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Balance entry removed.']);
 
-        return to_route('superannuation.index');
+        return back();
     }
 }

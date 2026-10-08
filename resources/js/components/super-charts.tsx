@@ -73,9 +73,7 @@ function Chart({
                         r="3"
                         className="fill-primary"
                     >
-                        <title>
-                            {point.label}: {money(point.value)}
-                        </title>
+                        <title>{`${point.label}: ${money(point.value)}`}</title>
                     </circle>
                     {(i === 0 ||
                         i === points.length - 1 ||

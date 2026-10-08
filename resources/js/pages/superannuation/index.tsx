@@ -1,3 +1,4 @@
+import { show as showFund } from '@/routes/superannuation';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { ArrowUpRight, Plus, Sprout } from 'lucide-react';
@@ -10,25 +11,16 @@ import {
 } from '@/components/budget/shared';
 import { HistoryChart, ProjectionChart } from '@/components/super-charts';
 import { FundEditor } from '@/components/super-fund-editor';
-import { BalanceEditor } from '@/components/super-balance-editor';
 import { Button } from '@/components/ui/button';
 
 import { income as incomeRoute } from '@/routes';
 import { destroy, index } from '@/routes/superannuation';
 import { destroy as deleteBalance } from '@/routes/super-balances';
-import type {
-    SuperBalance,
-    SuperFund,
-    SuperProps,
-} from '@/types/superannuation';
+import type { SuperFund, SuperProps } from '@/types/superannuation';
 
 export default function SuperannuationPage(props: SuperProps) {
-    const { funds, today } = props;
+    const { funds } = props;
     const [editor, setEditor] = useState<SuperFund | 'new' | null>(null);
-    const [balanceEditor, setBalanceEditor] = useState<{
-        fund: SuperFund;
-        balance?: SuperBalance;
-    } | null>(null);
     const [years, setYears] = useState('20');
     const horizon = Number(years);
     const totalBalance = funds.reduce(
@@ -226,7 +218,12 @@ export default function SuperannuationPage(props: SuperProps) {
                                             {fund.person}
                                         </p>
                                         <h2 className="mt-1 text-lg font-semibold">
-                                            {fund.name}
+                                            <Link
+                                                href={showFund(fund.id)}
+                                                className="hover:underline"
+                                            >
+                                                {fund.name}
+                                            </Link>
                                         </h2>
                                         <p className="mt-1 text-sm text-muted-foreground">
                                             {fund.investment_option ||
@@ -237,9 +234,11 @@ export default function SuperannuationPage(props: SuperProps) {
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => setEditor(fund)}
+                                        onClick={() =>
+                                            router.visit(showFund(fund.id))
+                                        }
                                     >
-                                        Edit fund
+                                        View fund & history
                                     </Button>
                                 </div>
                                 <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
@@ -256,7 +255,11 @@ export default function SuperannuationPage(props: SuperProps) {
                                     <Button
                                         size="sm"
                                         onClick={() =>
-                                            setBalanceEditor({ fund })
+                                            router.visit(
+                                                showFund(fund.id, {
+                                                    query: { balance: 1 },
+                                                }),
+                                            )
                                         }
                                     >
                                         Record balance
@@ -380,11 +383,16 @@ export default function SuperannuationPage(props: SuperProps) {
                                                             size="sm"
                                                             variant="ghost"
                                                             onClick={() =>
-                                                                setBalanceEditor(
-                                                                    {
-                                                                        fund,
-                                                                        balance,
-                                                                    },
+                                                                router.visit(
+                                                                    showFund(
+                                                                        fund.id,
+                                                                        {
+                                                                            query: {
+                                                                                balance_record:
+                                                                                    balance.id,
+                                                                            },
+                                                                        },
+                                                                    ),
                                                                 )
                                                             }
                                                         >
@@ -460,16 +468,10 @@ export default function SuperannuationPage(props: SuperProps) {
             )}
             {editor && (
                 <FundEditor
+                    inline
                     {...props}
                     fund={editor === 'new' ? undefined : editor}
                     onClose={() => setEditor(null)}
-                />
-            )}
-            {balanceEditor && (
-                <BalanceEditor
-                    {...balanceEditor}
-                    today={today}
-                    onClose={() => setBalanceEditor(null)}
                 />
             )}
         </div>

@@ -4,11 +4,15 @@ namespace App\Services;
 
 use App\Cadence;
 use App\Models\Mortgage;
+use Carbon\CarbonImmutable;
 
 class MortgageCalculator
 {
-    public function repayment(Mortgage $mortgage): int
+    public function __construct(private FinancialHistory $history) {}
+
+    public function repayment(Mortgage $mortgage, ?CarbonImmutable $date = null): int
     {
+        $mortgage = $this->history->at($mortgage, $date);
         $frequency = Cadence::from($mortgage->frequency)->periods();
         $periods = $mortgage->term_years * $frequency;
         $rate = $mortgage->annual_rate / 100 / $frequency;
@@ -20,6 +24,8 @@ class MortgageCalculator
 
     public function plannedRepayment(Mortgage $mortgage): int
     {
+        $mortgage = $this->history->at($mortgage);
+
         return $this->repayment($mortgage) + $mortgage->extra_cents;
     }
 }

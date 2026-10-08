@@ -7,6 +7,7 @@ use App\Models\BudgetItem;
 use App\Models\Household;
 use App\Services\AustralianTaxEstimator;
 use App\Services\BudgetCalculator;
+use App\Services\BudgetItemHistory;
 use App\Services\HouseholdBudget;
 use App\Services\HouseholdResolver;
 use Carbon\CarbonImmutable;
@@ -17,7 +18,7 @@ use Inertia\Response;
 
 class BudgetController extends Controller
 {
-    public function index(Request $request, HouseholdResolver $households, BudgetCalculator $calculator, AustralianTaxEstimator $tax, HouseholdBudget $budget): Response
+    public function index(Request $request, HouseholdResolver $households, BudgetCalculator $calculator, AustralianTaxEstimator $tax, HouseholdBudget $budget, BudgetItemHistory $history): Response
     {
         $household = $households->forUser($request->user());
         Gate::authorize('manage', $household);
@@ -28,7 +29,8 @@ class BudgetController extends Controller
         $events = [];
         foreach ($items->whereIn('kind', ['bill', 'income']) as $item) {
             foreach ($calculator->occurrences($item, $month, $month->endOfMonth()) as $date) {
-                $events[] = ['id' => $item->id, 'name' => $item->name, 'category' => $item->category, 'date' => $date, 'kind' => $item->kind, 'cadence' => $item->cadence, 'amount_cents' => $item->kind === 'income' ? (int) round($calculator->annual($item) / Cadence::from($item->cadence)->periods($item->payments_per_year)) : $item->amount_cents, 'is_variable' => $item->is_variable, 'account' => $item->account?->name, 'source' => $item->source];
+                $terms = $history->termsAt($item, CarbonImmutable::parse($date, 'Australia/Melbourne'));
+                $events[] = ['id' => $item->id, 'name' => $item->name, 'category' => $item->category, 'date' => $date, 'kind' => $item->kind, 'cadence' => $terms['cadence'], 'amount_cents' => $item->kind === 'income' ? (int) round($calculator->annual($item, CarbonImmutable::parse($date, 'Australia/Melbourne')) / Cadence::from($terms['cadence'])->periods($terms['payments_per_year'])) : $terms['amount_cents'], 'is_variable' => $item->is_variable, 'account' => $item->account?->name, 'source' => $item->source];
             }
         }
         usort($events, fn (array $a, array $b): int => [$a['date'], $a['name']] <=> [$b['date'], $b['name']]);

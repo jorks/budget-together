@@ -62,7 +62,10 @@ export const money = (cents: number) =>
         currency: 'AUD',
     }).format(cents / 100);
 export const dateLabel = (date: string) =>
-    new Date(`${date.slice(0, 10)}T12:00:00`).toLocaleDateString('en-AU', {
+    new Date(
+        date.includes('T') ? date : `${date.slice(0, 10)}T12:00:00+10:00`,
+    ).toLocaleDateString('en-AU', {
+        timeZone: 'Australia/Melbourne',
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -96,6 +99,7 @@ export function Field({
     error,
     type = 'text',
     required = false,
+    step,
     hint,
     options,
     list,
@@ -106,6 +110,7 @@ export function Field({
     error?: string;
     type?: string;
     required?: boolean;
+    step?: string;
     hint?: string;
     options?: Record<string, string>;
     list?: string;
@@ -140,11 +145,12 @@ export function Field({
                     {...attributes}
                     type={type === 'money' ? 'number' : type}
                     step={
-                        type === 'money'
+                        step ??
+                        (type === 'money'
                             ? '0.01'
                             : type === 'number'
                               ? '1'
-                              : undefined
+                              : undefined)
                     }
                     list={list}
                 />

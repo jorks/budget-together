@@ -227,7 +227,7 @@ it.each(['bills', 'plan'])(
 
         expect(
             rows
-                .match(/font-semibold hover:underline">([^<]+)/g)
+                .match(/<a[^>]*href="\/budget-items\/\d+"[^>]*>([^<]+)/g)
                 ?.map((match) => match.split('>')[1]),
         ).toEqual([
             'Rent',

@@ -1,4 +1,4 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup, renderToString } from 'react-dom/server';
 import { expect, it, vi } from 'vitest';
 import SuperannuationPage from '@/pages/superannuation/index';
 import type { SuperFund } from '@/types/superannuation';
@@ -61,6 +61,22 @@ const render = (funds: SuperFund[]) =>
             today="2026-10-02"
         />,
     );
+
+it('renders chart tooltip titles as single text nodes for hydration', () => {
+    const html = renderToString(
+        <SuperannuationPage
+            funds={[fund]}
+            incomes={[]}
+            people={['James']}
+            today="2026-10-02"
+        />,
+    );
+    const titles = html.match(/<title>.*?<\/title>/g) ?? [];
+    expect(titles.length).toBeGreaterThan(2);
+    for (const title of titles) {
+        expect(title).not.toContain('<!-- -->');
+    }
+});
 
 it('shows an actionable empty state', () => {
     const html = render([]);

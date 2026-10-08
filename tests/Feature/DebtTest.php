@@ -16,11 +16,11 @@ test('families can add edit and remove their own debts', function () {
     $account = Account::factory()->for($household)->create();
     $payload = Debt::factory()->creditCard()->raw(['household_id' => $household->id, 'account_id' => $account->id]);
 
-    $this->actingAs($household->users->first())->post(route('debts.store'), $payload)->assertRedirect(route('debts.index'));
+    $this->actingAs($household->users->first())->post(route('debts.store'), $payload)->assertRedirect();
 
     $debt = $household->debts()->firstOrFail();
     $this->assertDatabaseHas('debts', ['id' => $debt->id, 'household_id' => $household->id, 'type' => 'credit_card', 'balance_cents' => 320000]);
-    $this->put(route('debts.update', $debt), array_replace($payload, ['balance_cents' => 300000]))->assertRedirect(route('debts.index'));
+    $this->put(route('debts.update', $debt), array_replace($payload, ['balance_cents' => 300000]))->assertRedirect(route('debts.show', $debt));
     expect($debt->fresh()->balance_cents)->toBe(300000);
     $this->delete(route('debts.destroy', $debt))->assertRedirect(route('debts.index'));
     $this->assertModelMissing($debt);
@@ -99,7 +99,7 @@ test('debt repayments cannot use another familys account or change ownership', f
     $this->actingAs($household->users->first())->post(route('debts.store'), $payload)->assertSessionHasErrors('account_id');
     $this->assertDatabaseCount('debts', 0);
 
-    $this->post(route('debts.store'), array_replace($payload, ['account_id' => null]))->assertRedirect(route('debts.index'));
+    $this->post(route('debts.store'), array_replace($payload, ['account_id' => null]))->assertRedirect();
     $this->assertDatabaseHas('debts', ['household_id' => $household->id]);
 });
 
@@ -191,11 +191,12 @@ test('projected debt repayments cannot be edited as bills or receive bill paymen
 });
 
 test('updating repayment frequency extras and account refreshes the budget immediately', function () {
+    $this->travelTo(now('Australia/Melbourne')->setDate(2026, 10, 1));
     $household = Household::factory()->hasAttached(User::factory())->create(['debts_enabled' => true]);
     $account = Account::factory()->for($household)->create();
     $debt = Debt::factory()->for($household)->create();
 
-    $this->actingAs($household->users->first())->put(route('debts.update', $debt), array_replace($debt->getAttributes(), ['repayment_cents' => 10000, 'extra_cents' => 5000, 'frequency' => 'weekly', 'due_date' => '2026-10-02', 'account_id' => $account->id]))->assertRedirect(route('debts.index'));
+    $this->actingAs($household->users->first())->put(route('debts.update', $debt), array_replace($debt->getAttributes(), ['repayment_cents' => 10000, 'extra_cents' => 5000, 'frequency' => 'weekly', 'due_date' => '2026-10-02', 'account_id' => $account->id]))->assertRedirect(route('debts.show', $debt));
     $this->get(route('calendar', ['month' => '2026-10']))->assertInertia(fn (Assert $page) => $page->where('items.0.amount_cents', 15000)->where('items.0.cadence', 'weekly')->where('totals.bill.annually', 780000)->where('items.0.account_id', $account->id)->has('events', 5));
 
     $account->delete();

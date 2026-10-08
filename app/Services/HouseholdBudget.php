@@ -3,21 +3,28 @@
 namespace App\Services;
 
 use App\Models\BudgetItem;
+use App\Models\BudgetItemRevision;
 use App\Models\Debt;
+use App\Models\FinancialChange;
 use App\Models\Household;
+use App\Models\Mortgage;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 class HouseholdBudget
 {
-    public function __construct(private MortgageCalculator $mortgages) {}
+    public function __construct(private MortgageCalculator $mortgages, private FinancialHistory $history) {}
 
     /** @return Collection<int, BudgetItem> */
     public function items(Household $household): Collection
     {
-        $items = $household->items()->with(['account', 'payments' => fn ($query) => $query->orderByDesc('paid_on')->orderByDesc('id')])->orderBy('name')->orderBy('id')->get();
+        $items = $household->items()->with(['account', 'revisions', 'financialChanges', 'payments' => fn ($query) => $query->orderByDesc('paid_on')->orderByDesc('id')])->orderBy('name')->orderBy('id')->get();
         if ($household->debts_enabled) {
-            foreach ($household->debts()->with('account')->where('is_active', true)->where('balance_cents', '>', 0)->get() as $debt) {
-                $items->push($this->debtRepayment($debt));
+            foreach ($household->debts()->with(['account', 'financialChanges'])->where('is_active', true)->get() as $debt) {
+                $debt = $this->history->at($debt);
+                if ($debt->balance_cents > 0) {
+                    $items->push($this->debtRepayment($debt));
+                }
             }
         }
         $mortgage = $household->mortgage_enabled ? $household->mortgage()->with('account')->first() : null;
@@ -25,6 +32,7 @@ class HouseholdBudget
             return $items->sortBy(fn (BudgetItem $item): string => $item->name)->values();
         }
 
+        $mortgage = $this->history->at($mortgage);
         $items = $items->reject(fn (BudgetItem $item): bool => $item->kind === 'bill' && mb_strtolower(trim($item->category ?? '')) === 'mortgage');
         $repayment = (new BudgetItem)->forceFill([
             'id' => -$mortgage->id,
@@ -58,7 +66,7 @@ class HouseholdBudget
             'salary_sacrifice_cents' => 0,
             'workplace_giving_cents' => 0,
             'other_deductions_cents' => 0,
-        ])->setRelation('account', $mortgage->account)->setRelation('payments', collect());
+        ])->setRelation('account', $mortgage->account)->setRelation('payments', collect())->setRelation('revisions', $this->loanRevisions($mortgage));
 
         return $items->push($repayment)->sortBy(fn (BudgetItem $item): string => $item->name)->values();
     }
@@ -97,8 +105,28 @@ class HouseholdBudget
             'salary_sacrifice_cents' => 0,
             'workplace_giving_cents' => 0,
             'other_deductions_cents' => 0,
-        ])->setRelation('account', $debt->account)->setRelation('payments', collect());
+        ])->setRelation('account', $debt->account)->setRelation('payments', collect())->setRelation('revisions', $this->loanRevisions($debt));
 
         return $repayment;
+    }
+
+    /** @return Collection<int, BudgetItemRevision> */
+    private function loanRevisions(Debt|Mortgage $loan): Collection
+    {
+        $loan->loadMissing('financialChanges');
+
+        return $loan->financialChanges->map(function (FinancialChange $change) use ($loan): BudgetItemRevision {
+            $date = $change->effective_from ?? CarbonImmutable::parse('2000-01-01');
+            $snapshot = $this->history->at($loan, $date);
+            $amount = $snapshot instanceof Debt ? ($snapshot->balance_cents > 0 ? $snapshot->repayment_cents + $snapshot->extra_cents : 0) : $this->mortgages->repayment($snapshot, $date) + $snapshot->extra_cents;
+
+            return (new BudgetItemRevision)->forceFill([
+                'effective_from' => $change->effective_from,
+                'amount_cents' => $amount,
+                'cadence' => $snapshot->frequency,
+                'payments_per_year' => null,
+                'schedule_date' => $snapshot->due_date?->toDateString(),
+            ]);
+        });
     }
 }

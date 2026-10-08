@@ -1,3 +1,9 @@
+import { useState } from 'react';
+import {
+    FinancialHistory,
+    financialValues,
+} from '@/components/financial-history';
+import type { FinancialChange } from '@/components/financial-history';
 import { Head, useForm } from '@inertiajs/react';
 import { House, TrendingDown } from 'lucide-react';
 import {
@@ -97,13 +103,18 @@ function BalanceChart({
     );
 }
 
-export default function MortgagePage({
+function MortgagePlanner({
     mortgage,
     accounts = [],
+    changes = [],
+    today = '',
 }: {
+    changes?: FinancialChange[];
+    today?: string;
     mortgage: Mortgage | null;
     accounts?: { id: number; name: string }[];
 }) {
+    const [financialEditing, setFinancialEditing] = useState(false);
     const form = useForm({
         name: mortgage?.name ?? 'Our home loan',
         due_date: mortgage?.due_date?.slice(0, 10) ?? '',
@@ -135,14 +146,16 @@ export default function MortgagePage({
     const save = () => {
         form.transform((data) => ({
             name: data.name,
-            due_date: data.due_date || null,
+            due_date: mortgage
+                ? (mortgage.due_date ?? null)
+                : data.due_date || null,
             account_id: data.account_id ? Number(data.account_id) : null,
-            balance_cents: cents(data.balance),
-            annual_rate: data.annual_rate,
-            term_years: data.term_years,
-            frequency: data.frequency,
-            offset_cents: cents(data.offset),
-            extra_cents: cents(data.extra),
+            balance_cents: mortgage?.balance_cents ?? cents(data.balance),
+            annual_rate: mortgage?.annual_rate ?? data.annual_rate,
+            term_years: mortgage?.term_years ?? data.term_years,
+            frequency: mortgage?.frequency ?? data.frequency,
+            offset_cents: mortgage?.offset_cents ?? cents(data.offset),
+            extra_cents: mortgage?.extra_cents ?? cents(data.extra),
         }));
         form.put(update.url(), { preserveScroll: true });
     };
@@ -165,6 +178,37 @@ export default function MortgagePage({
                         </p>
                     </div>
                 </div>
+                {mortgage && (
+                    <Panel>
+                        <dl className="grid gap-4 text-sm sm:grid-cols-4">
+                            {[
+                                ['Loan balance', money(mortgage.balance_cents)],
+                                [
+                                    'Interest rate',
+                                    `${mortgage.annual_rate}% p.a.`,
+                                ],
+                                [
+                                    'Offset balance',
+                                    money(mortgage.offset_cents),
+                                ],
+                                [
+                                    'Known repayment date',
+                                    mortgage.due_date?.slice(0, 10) ||
+                                        'Not set',
+                                ],
+                            ].map(([label, value]) => (
+                                <div key={label}>
+                                    <dt className="text-muted-foreground">
+                                        {label}
+                                    </dt>
+                                    <dd className="mt-1 font-semibold">
+                                        {value}
+                                    </dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </Panel>
+                )}
                 <div className="grid items-start gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
                     <Panel>
                         <form
@@ -174,160 +218,182 @@ export default function MortgagePage({
                                 save();
                             }}
                         >
-                            <div>
-                                <h2 className="font-semibold">
-                                    Your loan details
-                                </h2>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    Saved for everyone in your household. Graphs
-                                    update as you type.
-                                </p>
-                            </div>
-                            <Field
-                                label="Loan name"
-                                value={form.data.name}
-                                onChange={(value) =>
-                                    form.setData('name', value)
-                                }
-                                error={errors.name}
-                                required
-                            />
-                            <Field
-                                label="Remaining loan balance ($)"
-                                type="money"
-                                value={form.data.balance}
-                                onChange={(value) =>
-                                    form.setData('balance', value)
-                                }
-                                error={errors.balance_cents}
-                                required
-                            />
-                            <div className="grid gap-2">
-                                <Label htmlFor="mortgage-rate">
-                                    Interest rate (% per year)
-                                </Label>
-                                <Input
-                                    id="mortgage-rate"
-                                    type="number"
-                                    min="0"
-                                    max="30"
-                                    step="0.001"
-                                    value={form.data.annual_rate}
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'annual_rate',
-                                            event.target.value,
-                                        )
-                                    }
-                                    required
-                                    aria-invalid={Boolean(errors.annual_rate)}
-                                    aria-describedby={
-                                        errors.annual_rate
-                                            ? 'mortgage-rate-error'
-                                            : undefined
-                                    }
-                                />
-                                <InputError
-                                    id="mortgage-rate-error"
-                                    message={errors.annual_rate}
-                                />
-                            </div>
-                            <Field
-                                label="Remaining term (years)"
-                                type="number"
-                                value={form.data.term_years}
-                                onChange={(value) =>
-                                    form.setData('term_years', value)
-                                }
-                                error={errors.term_years}
-                                required
-                            />
-                            <Field
-                                label="Repayment frequency"
-                                value={form.data.frequency}
-                                options={frequencies}
-                                onChange={(value) =>
-                                    form.setData(
-                                        'frequency',
-                                        value as Mortgage['frequency'],
-                                    )
-                                }
-                                error={errors.frequency}
-                            />
-                            <Field
-                                label="Next repayment date"
-                                type="date"
-                                value={form.data.due_date}
-                                onChange={(value) =>
-                                    form.setData('due_date', value)
-                                }
-                                error={errors.due_date}
-                                hint="Adds recurring repayments to the money calendar."
-                            />
-                            <Field
-                                label="Repayment account"
-                                value={form.data.account_id}
-                                options={{
-                                    '': 'No account assigned',
-                                    ...Object.fromEntries(
-                                        accounts.map((account) => [
-                                            String(account.id),
-                                            account.name,
-                                        ]),
-                                    ),
-                                }}
-                                onChange={(value) =>
-                                    form.setData('account_id', value)
-                                }
-                                error={errors.account_id}
-                            />
-                            <div className="border-t pt-4">
-                                <h3 className="mb-3 text-sm font-semibold">
-                                    Explore paying it off sooner
-                                </h3>
-                                <div className="flex flex-col gap-4">
-                                    <Field
-                                        label="Steady offset balance ($)"
-                                        type="money"
-                                        value={form.data.offset}
-                                        onChange={(value) =>
-                                            form.setData('offset', value)
-                                        }
-                                        error={errors.offset_cents}
-                                        hint="Assumes this amount stays in a 100% offset account."
-                                        required
-                                    />
-                                    <Field
-                                        label={`Extra per ${form.data.frequency === 'monthly' ? 'month' : form.data.frequency === 'weekly' ? 'week' : 'fortnight'} ($)`}
-                                        type="money"
-                                        value={form.data.extra}
-                                        onChange={(value) =>
-                                            form.setData('extra', value)
-                                        }
-                                        error={errors.extra_cents}
-                                        required
-                                    />
+                            <fieldset
+                                className="contents"
+                                disabled={financialEditing}
+                            >
+                                <div>
+                                    <h2 className="font-semibold">
+                                        Loan details
+                                    </h2>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Record balance, offset, rate and
+                                        refinance changes in Financial history
+                                        below.
+                                    </p>
                                 </div>
-                            </div>
-                            <Button type="submit" disabled={form.processing}>
-                                {form.processing
-                                    ? 'Saving…'
-                                    : 'Save mortgage details'}
-                            </Button>
-                            {form.recentlySuccessful && (
-                                <p
-                                    role="status"
-                                    className="text-sm text-primary"
+                                <Field
+                                    label="Loan name"
+                                    value={form.data.name}
+                                    onChange={(value) =>
+                                        form.setData('name', value)
+                                    }
+                                    error={errors.name}
+                                    required
+                                />
+                                {!mortgage && (
+                                    <>
+                                        <Field
+                                            label="Remaining loan balance ($)"
+                                            type="money"
+                                            value={form.data.balance}
+                                            onChange={(value) =>
+                                                form.setData('balance', value)
+                                            }
+                                            error={errors.balance_cents}
+                                            required
+                                        />
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="mortgage-rate">
+                                                Interest rate (% per year)
+                                            </Label>
+                                            <Input
+                                                id="mortgage-rate"
+                                                type="number"
+                                                min="0"
+                                                max="30"
+                                                step="0.001"
+                                                value={form.data.annual_rate}
+                                                onChange={(event) =>
+                                                    form.setData(
+                                                        'annual_rate',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                required
+                                                aria-invalid={Boolean(
+                                                    errors.annual_rate,
+                                                )}
+                                                aria-describedby={
+                                                    errors.annual_rate
+                                                        ? 'mortgage-rate-error'
+                                                        : undefined
+                                                }
+                                            />
+                                            <InputError
+                                                id="mortgage-rate-error"
+                                                message={errors.annual_rate}
+                                            />
+                                        </div>
+                                        <Field
+                                            label="Remaining term (years)"
+                                            type="number"
+                                            value={form.data.term_years}
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'term_years',
+                                                    value,
+                                                )
+                                            }
+                                            error={errors.term_years}
+                                            required
+                                        />
+                                        <Field
+                                            label="Repayment frequency"
+                                            value={form.data.frequency}
+                                            options={frequencies}
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'frequency',
+                                                    value as Mortgage['frequency'],
+                                                )
+                                            }
+                                            error={errors.frequency}
+                                        />
+                                    </>
+                                )}
+                                {!mortgage && (
+                                    <>
+                                        <Field
+                                            label="Next repayment date"
+                                            type="date"
+                                            value={form.data.due_date}
+                                            onChange={(value) =>
+                                                form.setData('due_date', value)
+                                            }
+                                            error={errors.due_date}
+                                            hint="Adds recurring repayments to the money calendar."
+                                        />
+                                    </>
+                                )}
+                                <Field
+                                    label="Repayment account"
+                                    value={form.data.account_id}
+                                    options={{
+                                        '': 'No account assigned',
+                                        ...Object.fromEntries(
+                                            accounts.map((account) => [
+                                                String(account.id),
+                                                account.name,
+                                            ]),
+                                        ),
+                                    }}
+                                    onChange={(value) =>
+                                        form.setData('account_id', value)
+                                    }
+                                    error={errors.account_id}
+                                />
+                                <div className="border-t pt-4">
+                                    <h3 className="mb-3 text-sm font-semibold">
+                                        Explore paying it off sooner
+                                    </h3>
+                                    <div className="flex flex-col gap-4">
+                                        <Field
+                                            label="Steady offset balance ($)"
+                                            type="money"
+                                            value={form.data.offset}
+                                            onChange={(value) =>
+                                                form.setData('offset', value)
+                                            }
+                                            error={errors.offset_cents}
+                                            hint="Preview a steady 100% offset balance. Record a financial update below to save an actual change."
+                                            required
+                                        />
+                                        <Field
+                                            label={`Extra per ${form.data.frequency === 'monthly' ? 'month' : form.data.frequency === 'weekly' ? 'week' : 'fortnight'} ($)`}
+                                            type="money"
+                                            value={form.data.extra}
+                                            onChange={(value) =>
+                                                form.setData('extra', value)
+                                            }
+                                            error={errors.extra_cents}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                <Button
+                                    type="submit"
+                                    disabled={form.processing}
                                 >
-                                    Mortgage details saved.
+                                    {form.processing
+                                        ? 'Saving…'
+                                        : 'Save mortgage details'}
+                                </Button>
+                                {form.recentlySuccessful && (
+                                    <p
+                                        role="status"
+                                        className="text-sm text-primary"
+                                    >
+                                        Mortgage details saved.
+                                    </p>
+                                )}
+                                <p className="text-xs leading-relaxed text-muted-foreground">
+                                    Save the loan name and repayment account
+                                    here. Financial history records dated loan
+                                    changes. The offset and extra fields above
+                                    preview a scenario.
                                 </p>
-                            )}
-                            <p className="text-xs leading-relaxed text-muted-foreground">
-                                Saving updates the locked mortgage repayment in
-                                expenses, the spending plan, and your budget
-                                totals. Repayments include extras; account
-                                balances remain separate.
-                            </p>
+                            </fieldset>
                         </form>
                     </Panel>
                     <div className="flex min-w-0 flex-col gap-6">
@@ -562,9 +628,31 @@ export default function MortgagePage({
                         )}
                     </div>
                 </div>
+                {mortgage && (
+                    <FinancialHistory
+                        disabled={
+                            !!mortgage &&
+                            (form.data.name !== mortgage.name ||
+                                form.data.account_id !==
+                                    String(mortgage.account_id ?? ''))
+                        }
+                        onEditingChange={setFinancialEditing}
+                        type="mortgage"
+                        id={mortgage.id}
+                        values={financialValues(mortgage, 'mortgage')}
+                        changes={changes}
+                        today={today}
+                    />
+                )}
             </div>
         </>
     );
+}
+
+export default function MortgagePage(
+    props: Parameters<typeof MortgagePlanner>[0],
+) {
+    return <MortgagePlanner key={JSON.stringify(props.mortgage)} {...props} />;
 }
 
 MortgagePage.layout = {

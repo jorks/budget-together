@@ -9,15 +9,19 @@ use Illuminate\Support\Collection;
 
 class BudgetCalculator
 {
-    public function __construct(private AustralianTaxEstimator $tax) {}
+    public function __construct(private AustralianTaxEstimator $tax, private BudgetItemHistory $history, private FinancialHistory $financial) {}
 
-    public function annual(BudgetItem $item): int
+    public function annual(BudgetItem $item, ?CarbonImmutable $date = null): int
     {
+        $date ??= CarbonImmutable::today('Australia/Melbourne');
+        $item = $this->financial->at($item, $date);
         if ($item->kind === 'income' && $item->use_tax_estimate) {
             return $this->tax->estimate($item->gross_annual_cents + ($item->include_bonus ? $item->bonus_annual_cents : 0), $item->tax_year, $item->include_medicare, $item->salary_sacrifice_cents ?? 0, $item->workplace_giving_cents ?? 0, $item->other_deductions_cents ?? 0)['net_cents'];
         }
 
-        return $item->amount_cents * Cadence::from($item->cadence)->periods($item->payments_per_year);
+        $terms = $this->history->termsAt($item, $date);
+
+        return $terms['amount_cents'] * Cadence::from($terms['cadence'])->periods($terms['payments_per_year']);
     }
 
     /** @return array{annually: int, monthly: int, fortnightly: int, weekly: int} */
@@ -29,23 +33,52 @@ class BudgetCalculator
     /** @return list<string> */
     public function occurrences(BudgetItem $item, CarbonImmutable $from, CarbonImmutable $until): array
     {
+        $item = $this->financial->at($item, CarbonImmutable::parse('2000-01-01'));
         $scheduledDate = $item->kind === 'income' ? $item->pay_date : $item->due_date;
-        if (! $item->is_active || $scheduledDate === null) {
+        if ($item->getAttribute('source') !== null && $item->relationLoaded('revisions')) {
+            $baseline = $item->revisions->whereNull('effective_from')->first();
+            if ($baseline !== null) {
+                $scheduledDate = $baseline->getAttribute('schedule_date');
+            }
+        }
+        if (! $item->is_active) {
             return [];
         }
-        $anchor = CarbonImmutable::parse($scheduledDate->toDateString(), $from->timezone);
-        $cadence = Cadence::from($item->cadence);
+        $anchor = $scheduledDate === null ? null : CarbonImmutable::parse($scheduledDate, $from->timezone);
+        $terms = $this->history->termsAt($item, CarbonImmutable::parse('2000-01-01'));
+        $segments = [['start' => null, 'anchor' => $anchor, 'cadence' => $terms['cadence']]];
+        if ($item->exists || $item->relationLoaded('revisions')) {
+            $changes = $item->kind === 'bill'
+                ? $item->revisions->whereNotNull('effective_from')->map(fn ($revision): array => ['date' => $revision->effective_from->toDateString(), 'cadence' => $revision->cadence, 'has_schedule' => $item->getAttribute('source') !== null, 'pay_date' => $revision->getAttribute('schedule_date')])
+                : $item->financialChanges->whereNotNull('effective_from')->map(fn ($revision): array => ['date' => $revision->effective_from->toDateString(), 'cadence' => $revision->values['cadence'], 'has_schedule' => $item->kind === 'income', 'pay_date' => $revision->values['pay_date'] ?? null]);
+            foreach ($changes->sortBy('date') as $change) {
+                if ($change['has_schedule']) {
+                    $anchor = $change['pay_date'] === null ? null : CarbonImmutable::parse($change['pay_date'], $from->timezone);
+                } elseif ($anchor !== null && $change['cadence'] !== $terms['cadence']) {
+                    $anchor = max($anchor, CarbonImmutable::parse($change['date'], $from->timezone));
+                }
+                $segments[] = ['start' => $change['date'], 'anchor' => $anchor, 'cadence' => $change['cadence']];
+                $terms['cadence'] = $change['cadence'];
+            }
+        }
         $dates = [];
-        for ($index = 0; ; $index++) {
-            $date = $cadence->occurrence($anchor, $index);
-            if ($date->greaterThan($until)) {
-                break;
+        foreach ($segments as $position => $segment) {
+            if ($segment['anchor'] === null) {
+                continue;
             }
-            if ($date->greaterThanOrEqualTo($from)) {
-                $dates[] = $date->toDateString();
-            }
-            if ($cadence === Cadence::Custom) {
-                break;
+            $end = $segments[$position + 1]['start'] ?? null;
+            $cadence = Cadence::from($segment['cadence']);
+            for ($index = 0; ; $index++) {
+                $date = $cadence->occurrence($segment['anchor'], $index);
+                if ($date->greaterThan($until) || ($end !== null && $date->toDateString() >= $end)) {
+                    break;
+                }
+                if ($date->greaterThanOrEqualTo($from) && ($segment['start'] === null || $date->toDateString() >= $segment['start'])) {
+                    $dates[] = $date->toDateString();
+                }
+                if ($cadence === Cadence::Custom) {
+                    break;
+                }
             }
         }
 
@@ -58,6 +91,8 @@ class BudgetCalculator
         if (! $item->has_sinking_fund || $item->due_date === null) {
             return null;
         }
+        $item = clone $item;
+        $item->fill($this->history->termsAt($item, $item->due_date));
         $remaining = max(0, $item->amount_cents - $item->saved_cents);
         $due = CarbonImmutable::parse($item->due_date->toDateString(), $today->timezone);
         $savingStart = $item->saving_start_date === null ? $today->startOfDay() : CarbonImmutable::parse($item->saving_start_date->toDateString(), $today->timezone);
@@ -87,12 +122,16 @@ class BudgetCalculator
     /** @return array<string, mixed> */
     public function present(BudgetItem $item, CarbonImmutable $today): array
     {
-        $annual = $this->annual($item);
+        $item = $this->financial->at($item, $today);
+        $annual = $this->annual($item, $today);
         $tax = $item->kind === 'income' && $item->gross_annual_cents !== null
             ? $this->tax->estimate($item->gross_annual_cents + ($item->include_bonus ? $item->bonus_annual_cents : 0), $item->tax_year, $item->include_medicare, $item->salary_sacrifice_cents ?? 0, $item->workplace_giving_cents ?? 0, $item->other_deductions_cents ?? 0)
             : null;
 
-        return [...$item->toArray(), 'equivalents' => $this->equivalents($annual), 'tax_estimate' => $tax, 'sinking_fund' => $this->sinkingFund($item, $today)];
+        $data = $item->toArray();
+        unset($data['revisions'], $data['bill_records'], $data['financial_changes']);
+
+        return [...$data, ...$this->history->termsAt($item, $today), 'equivalents' => $this->equivalents($annual), 'tax_estimate' => $tax, 'sinking_fund' => $this->sinkingFund($item, $today)];
     }
 
     /**
@@ -101,6 +140,7 @@ class BudgetCalculator
      */
     public function incomeTaxEstimates(Collection $items, CarbonImmutable $today): array
     {
+        $items = $items->map(fn (BudgetItem $item): BudgetItem => $this->financial->at($item, $today));
         $estimates = [];
         foreach ($items as $item) {
             if ($item->kind !== 'income' || ! $item->is_active || $item->gross_annual_cents === null || strtolower(trim($item->category ?? '')) === 'bonus') {

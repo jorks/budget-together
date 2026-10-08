@@ -45,6 +45,7 @@ class BudgetItemRequest extends FormRequest
         $date = ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2100-12-31'];
 
         return [
+            'preserve_price' => ['sometimes', 'boolean'],
             'kind' => ['required', Rule::in(['income', 'bill', 'spending', 'saving'])],
             'name' => ['required', 'string', 'max:120'],
             'category' => ['nullable', 'string', 'max:80'],

@@ -38,4 +38,10 @@ class SuperFund extends Model
     {
         return $this->hasMany(SuperBalance::class);
     }
+
+    /** @return HasMany<FinancialChange, $this> */
+    public function financialChanges(): HasMany
+    {
+        return $this->hasMany(FinancialChange::class, 'super_fund_id');
+    }
 }

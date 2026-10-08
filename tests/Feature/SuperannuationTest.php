@@ -7,6 +7,7 @@ use App\Models\SuperBalance;
 use App\Models\SuperFund;
 use App\Models\User;
 use App\Services\BudgetCalculator;
+use App\Services\FinancialHistory;
 use App\Services\SuperCalculator;
 use Carbon\CarbonImmutable;
 use Database\Seeders\BudgetDemoSeeder;
@@ -44,7 +45,7 @@ test('a household member can add edit and remove a fund without changing another
     $this->actingAs($household->users->first())->post(route('superannuation.store'), $payload)->assertRedirect(route('superannuation.index'));
     $fund = $household->superFunds()->firstOrFail();
     $this->assertDatabaseHas('super_balances', ['super_fund_id' => $fund->id, 'balance_cents' => 12500000]);
-    $this->put(route('superannuation.update', $fund), array_replace($payload, ['name' => 'Updated fund', 'balance_cents' => 1]))->assertRedirect(route('superannuation.index'));
+    $this->put(route('superannuation.update', $fund), array_replace($payload, ['name' => 'Updated fund', 'balance_cents' => 1]))->assertRedirect(route('superannuation.show', $fund));
     expect($fund->fresh()->name)->toBe('Updated fund');
     expect($fund->balances()->first()->balance_cents)->toBe(12500000);
     $this->get(route('superannuation.index'))->assertInertia(fn (Assert $page) => $page->component('superannuation/index')->has('funds', 1)->where('funds.0.id', $fund->id));
@@ -105,7 +106,7 @@ test('linked salary sacrifice updates income take home and remains canonical whe
     $fund = $household->superFunds()->firstOrFail();
     expect($calculator->annual($income->fresh()))->toBe($before - 340000);
     $this->get(route('superannuation.index'))->assertInertia(fn (Assert $page) => $page->where('funds.0.contributions.employer_cents', 1200000)->where('funds.0.contributions.sacrifice_cents', 500000)->where('funds.0.contributions.net_cents', 1445000));
-    $income->update(['salary_sacrifice_cents' => 600000]);
+    app(FinancialHistory::class)->updateDetails($income, ['salary_sacrifice_cents' => 600000]);
     $this->get(route('superannuation.index'))->assertInertia(fn (Assert $page) => $page->where('funds.0.contributions.sacrifice_cents', 600000));
     $this->put(route('superannuation.update', $fund), superPayload(['income_id' => $income->id, 'salary_sacrifice_cents' => 700000]))->assertRedirect();
     expect($income->fresh()->salary_sacrifice_cents)->toBe(700000);
@@ -189,14 +190,14 @@ test('super seeding creates linked funds history and a consolidation example and
     $household = User::query()->where('email', 'james@example.test')->firstOrFail()->households()->firstOrFail();
     $fund = $household->superFunds()->where('name', 'Example Super')->firstOrFail();
     expect($fund->income->name)->toBe('James salary');
-    expect($fund->balances()->count())->toBe(3);
+    expect($fund->balances()->count())->toBe(5);
     expect($household->superFunds()->where('person', 'James')->count())->toBe(2);
     $fund->update(['return_rate' => 4]);
     $fund->balances()->latest('recorded_on')->first()->update(['balance_cents' => 14000000]);
 
     $this->seed(SuperDemoSeeder::class);
     $this->assertDatabaseCount('super_funds', 3);
-    $this->assertDatabaseCount('super_balances', 9);
+    $this->assertDatabaseCount('super_balances', 15);
     expect($fund->fresh()->return_rate)->toBe(4.0);
     expect($fund->balances()->latest('recorded_on')->first()->balance_cents)->toBe(14000000);
     app()->detectEnvironment(fn (): string => 'production');
@@ -222,4 +223,28 @@ test('renaming a household person keeps their fund ownership consistent', functi
 
     $this->actingAs($user)->put(route('household.member', $user), ['name' => 'Jim'])->assertRedirect();
     expect($fund->fresh()->person)->toBe('Jim');
+});
+
+test('a wage with a newly effective gross salary becomes eligible for linking', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-01', 'Australia/Melbourne'));
+    $household = Household::factory()->hasAttached(User::factory())->create();
+    $income = BudgetItem::factory()->income()->for($household)->create(['gross_annual_cents' => null, 'salary_sacrifice_cents' => 0]);
+    app(FinancialHistory::class)->record($income, ['gross_annual_cents' => 10000000], '2026-11-01');
+    $payload = superPayload(['income_id' => $income->id, 'salary_sacrifice_cents' => 0]);
+    $this->actingAs($household->users->first())->post(route('superannuation.store'), $payload)->assertSessionHasErrors('income_id');
+    $this->travelTo(CarbonImmutable::parse('2026-11-01', 'Australia/Melbourne'));
+
+    $this->post(route('superannuation.store'), $payload)->assertSessionHasNoErrors();
+    $this->assertDatabaseHas('super_funds', ['household_id' => $household->id, 'income_id' => $income->id]);
+    $this->get(route('superannuation.index'))->assertInertia(fn (Assert $page) => $page->where('incomes.0.gross_annual_cents', 10000000));
+});
+
+test('fund detail opens the requested balance editor and hides other households funds', function () {
+    $household = Household::factory()->hasAttached(User::factory())->create();
+    $fund = SuperFund::factory()->for($household)->create();
+    $balance = SuperBalance::factory()->for($fund)->create();
+    $foreign = SuperFund::factory()->create();
+    $this->actingAs($household->users->first())->get(route('superannuation.show', [$fund, 'balance' => 1]))->assertInertia(fn (Assert $page) => $page->component('superannuation/show')->where('recordingBalance', true)->where('fund.id', $fund->id));
+    $this->get(route('superannuation.show', [$fund, 'balance_record' => $balance->id]))->assertInertia(fn (Assert $page) => $page->where('correctingBalance', $balance->id));
+    $this->get(route('superannuation.show', $foreign))->assertNotFound();
 });

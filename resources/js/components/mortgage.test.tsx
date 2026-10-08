@@ -28,7 +28,8 @@ it('shows an empty planner until loan details are entered', () => {
 it('loads saved dollar amounts and shows accessible comparisons and yearly values', () => {
     const html = renderToStaticMarkup(<MortgagePage mortgage={mortgage} />);
     expect(html).not.toContain('Super and mortgage at retirement');
-    expect(html).toContain('value="650000.00"');
+    expect(html).toContain('$650,000.00');
+    expect(html).toContain('Record financial update');
     expect(html).toContain('value="20000.00"');
     expect(html).toContain('value="300.00"');
     expect(html).toContain('$3,897.08');
@@ -50,8 +51,7 @@ it('supports lender rates with three decimal places and escapes loan names', () 
             }}
         />,
     );
-    expect(html).toContain('step="0.001"');
-    expect(html).toContain('value="6.125"');
+    expect(html).toContain('6.125% p.a.');
     expect(html).toContain('&lt;script&gt;');
     expect(html).not.toContain('<script>alert(1)</script>');
 });
@@ -63,9 +63,9 @@ it('loads the saved repayment schedule and explains its effect on the household 
             accounts={[{ id: 7, name: 'Bills account' }]}
         />,
     );
-    expect(html).toContain('value="2026-10-15"');
+    expect(html).toContain('2026-10-15');
     expect(html).toContain(
         '<option value="7" selected="">Bills account</option>',
     );
-    expect(html).toContain('Saving updates the locked mortgage repayment');
+    expect(html).toContain('Financial history records dated loan changes');
 });

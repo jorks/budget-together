@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\BudgetItem;
 use App\Models\SuperFund;
+use App\Services\FinancialHistory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -33,7 +34,7 @@ class SuperFundRequest extends FormRequest
             'person' => ['required', 'string', 'max:80'],
             'member_number' => ['nullable', 'string', 'max:80'],
             'investment_option' => ['nullable', 'string', 'max:120'],
-            'income_id' => ['nullable', 'integer', Rule::exists('budget_items', 'id')->where(fn ($query) => $query->where('household_id', $householdId)->where('kind', 'income')->where('is_active', true)->whereNotNull('gross_annual_cents')->where('person', $this->input('person'))), Rule::unique('super_funds', 'income_id')->ignore($fund instanceof SuperFund ? $fund->id : null)],
+            'income_id' => ['nullable', 'integer', Rule::exists('budget_items', 'id')->where(fn ($query) => $query->where('household_id', $householdId)->where('kind', 'income')->where('is_active', true)->where('person', $this->input('person'))), Rule::unique('super_funds', 'income_id')->ignore($fund instanceof SuperFund ? $fund->id : null)],
             'employer_rate' => ['required', 'numeric', 'between:0,30', 'decimal:0,3'],
             'salary_sacrifice_cents' => ['required', 'integer', 'between:0,999999999'],
             'annual_fee_cents' => ['required', 'integer', 'between:0,999999999'],
@@ -54,6 +55,10 @@ class SuperFundRequest extends FormRequest
                 return;
             }
             $income = BudgetItem::query()->whereKey($this->integer('income_id'))->firstOrFail();
+            $income = app(FinancialHistory::class)->at($income);
+            if ($income->gross_annual_cents === null) {
+                $validator->errors()->add('income_id', 'Choose a wage with a gross annual salary in effect today.');
+            }
             if (mb_strtolower(trim($income->category ?? '')) === 'bonus') {
                 $validator->errors()->add('income_id', 'Link a base PAYG wage rather than a bonus.');
             }

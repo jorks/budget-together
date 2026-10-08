@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** @property CarbonImmutable|null $due_date */
 #[Fillable(['name', 'balance_cents', 'annual_rate', 'term_years', 'frequency', 'offset_cents', 'extra_cents', 'due_date', 'account_id'])]
@@ -32,5 +33,11 @@ class Mortgage extends Model
     public function household(): BelongsTo
     {
         return $this->belongsTo(Household::class);
+    }
+
+    /** @return HasMany<FinancialChange, $this> */
+    public function financialChanges(): HasMany
+    {
+        return $this->hasMany(FinancialChange::class, 'mortgage_id');
     }
 }

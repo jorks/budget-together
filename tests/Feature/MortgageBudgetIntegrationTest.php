@@ -44,6 +44,7 @@ test('all household budget views include one mortgage repayment and exclude lega
 })->with(['dashboard', 'bills', 'plan', 'calendar', 'accounts', 'income', 'funds', 'household']);
 
 test('saving mortgage changes updates repayments totals account links and calendar frequency immediately', function () {
+    $this->travelTo(now('Australia/Melbourne')->setDate(2026, 10, 1));
     $household = Household::factory()->hasAttached(User::factory())->create();
     $account = Account::factory()->for($household)->create();
     Mortgage::factory()->for($household)->create();

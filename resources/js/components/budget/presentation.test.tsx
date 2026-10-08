@@ -587,7 +587,7 @@ it('renders the generated mortgage expense as a locked row managed in Mortgage',
     expect(html).toContain('Manage mortgage');
     expect(html).not.toContain('aria-label="Edit Mortgage repayment"');
     expect(html).not.toContain('aria-label="Delete Mortgage repayment"');
-    expect(html).not.toContain('Actual payments for Mortgage repayment');
+    expect(html).not.toContain('History for Mortgage repayment');
 });
 
 it('the spending plan uses managed mortgage repayments instead of duplicate legacy expenses', () => {

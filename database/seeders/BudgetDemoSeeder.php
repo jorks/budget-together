@@ -84,7 +84,9 @@ class BudgetDemoSeeder extends Seeder
         $this->item($household, 'James personal', ['kind' => 'spending', 'category' => 'Personal', 'person' => 'James', 'amount_cents' => 25000, 'cadence' => 'monthly', 'account_id' => $everyday->id]);
         $this->item($household, 'Sasha personal', ['kind' => 'spending', 'category' => 'Personal', 'person' => 'Sasha', 'amount_cents' => 25000, 'cadence' => 'monthly', 'account_id' => $everyday->id]);
         $this->call(SuperDemoSeeder::class);
+        $this->call(BudgetHistoryDemoSeeder::class);
         $this->item($household, 'Emergency & future fund', ['kind' => 'saving', 'category' => 'Savings', 'amount_cents' => 150000, 'cadence' => 'monthly', 'account_id' => $savings->id]);
+        $this->call(FinancialHistoryDemoSeeder::class);
     }
 
     private function account(Household $household, Bank $bank, string $name, string $type, int $balance, string $purpose): Account

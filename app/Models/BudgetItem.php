@@ -65,4 +65,22 @@ class BudgetItem extends Model
     {
         return $this->hasMany(BillPayment::class);
     }
+
+    /** @return HasMany<BudgetItemRevision, $this> */
+    public function revisions(): HasMany
+    {
+        return $this->hasMany(BudgetItemRevision::class);
+    }
+
+    /** @return HasMany<BillRecord, $this> */
+    public function billRecords(): HasMany
+    {
+        return $this->hasMany(BillRecord::class);
+    }
+
+    /** @return HasMany<FinancialChange, $this> */
+    public function financialChanges(): HasMany
+    {
+        return $this->hasMany(FinancialChange::class, 'budget_item_id');
+    }
 }

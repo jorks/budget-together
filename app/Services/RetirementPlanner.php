@@ -14,7 +14,7 @@ class RetirementPlanner
     /** @return list<array{id: int, name: string, date_of_birth: string|null, age: int|null, retirement_age: int, retirement_date: string|null, years_remaining: float|null, super_funds_count: int, super_projection: list<array{year: int|float, balance_cents: int, contributions_cents: int}>}> */
     public function members(Household $household, CarbonImmutable $today): array
     {
-        $funds = $household->superFunds()->with(['income', 'balances' => fn ($query) => $query->orderBy('recorded_on')->orderBy('id')])->get();
+        $funds = $household->superFunds()->with(['income.financialChanges', 'financialChanges', 'balances' => fn ($query) => $query->orderBy('recorded_on')->orderBy('id')])->get();
 
         return array_values($household->users()->orderBy('name')->get()->map(function (User $member) use ($funds, $today): array {
             $birth = $member->date_of_birth === null ? null : CarbonImmutable::parse($member->date_of_birth->toDateString(), $today->getTimezone());

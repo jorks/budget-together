@@ -133,3 +133,50 @@ export type BudgetProps = {
     invitations: { id: number; email: string; expires_at: string }[];
     invitation_url: string | null;
 };
+
+export type ItemRevision = {
+    id: number;
+    effective_from: string | null;
+    amount_cents: number;
+    cadence: string;
+    payments_per_year: number | null;
+    notes: string | null;
+    created_at: string;
+    updated_at: string;
+};
+export type BillRecord = {
+    id: number;
+    entry_key: string;
+    amount_cents: number;
+    billed_on: string;
+    period_start: string | null;
+    period_end: string | null;
+    due_on: string | null;
+    paid_on: string | null;
+    expected_amount_cents: number;
+    expected_cadence: string;
+    notes: string | null;
+    created_at: string;
+    updated_at: string;
+};
+export type EstimateSuggestion = {
+    amount_cents: number;
+    annual_cents: number;
+    bill_count: number;
+    covered_days: number;
+    from: string;
+    until: string;
+};
+export type ItemDetailProps = {
+    financialChanges?: import('@/components/financial-history').FinancialChange[];
+    editingSettings?: boolean;
+    item: BudgetItem;
+    revisions: ItemRevision[];
+    billRecords: BillRecord[];
+    suggestion: EstimateSuggestion | null;
+    today: string;
+    accounts: Account[];
+    categories: string[];
+    financialYear: number;
+    taxBrackets: BudgetProps['taxBrackets'];
+};

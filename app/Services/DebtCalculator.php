@@ -7,9 +7,12 @@ use App\Models\Debt;
 
 class DebtCalculator
 {
+    public function __construct(private FinancialHistory $history) {}
+
     /** @return array{periods: int|null, interest_cents: int|null, balances: list<int>} */
     public function project(Debt $debt, bool $includeExtras = true): array
     {
+        $debt = $this->history->at($debt);
         $balance = $debt->balance_cents;
         $balances = [$balance];
         $payment = $debt->repayment_cents + ($includeExtras ? $debt->extra_cents : 0);
